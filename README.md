@@ -1,55 +1,117 @@
 <p align="center">
-  <img src="assets/icon/qingjian-mark.svg" alt="青简竹简图标" height="108">
+  <img src="assets/icon/qingjian-mark.svg" alt="青简图标" height="108">
 </p>
 
-<h1 align="center">青简 Qingjian</h1>
+<h1 align="center">青简 · 俄语专版 (Qingjian-RU)</h1>
 
-<p align="center"><strong>好好输入，顺便多认识一个词。</strong></p>
+<p align="center"><strong>好好输入，顺便多学一个俄语词。</strong><br>
+<em>Нативный ввод пиньинь для изучающих русский язык — перевод на кириллице, части речи и уровни ТРКИ.</em></p>
 
 <p align="center">
-  <a href="https://qingjian.app/download"><img src="https://img.shields.io/github/v/release/qingjian-team/qingjian?label=stable" alt="stable release"></a>
-  <a href="https://github.com/qingjian-team/qingjian/stargazers"><img src="https://img.shields.io/github/stars/qingjian-team/qingjian?style=flat&amp;label=Stars" alt="GitHub Stars"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License: GPL-3.0-or-later"></a>
-  <a href="https://qingjian.app/docs/getting-started/install"><img src="https://img.shields.io/badge/macOS-13%2B-blue" alt="macOS 13+"></a>
-  <a href="https://qingjian.app/docs/getting-started/install"><img src="https://img.shields.io/badge/Windows-10%2F11-blue" alt="Windows 10/11"></a>
-  <a href="https://qingjian.app/docs/getting-started/linux"><img src="https://img.shields.io/badge/Linux-Fcitx5%20manual-lightgrey" alt="Linux Fcitx5，手动启动"></a>
+  <img src="https://img.shields.io/badge/Language-Russian%20%7C%20%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-red?style=flat" alt="Russian">
+  <img src="https://img.shields.io/badge/%D0%A2%D0%A0%D0%9A%D0%98%20(TORFL)-A1%E2%80%93C2-blue?style=flat" alt="TORFL Levels">
+  <img src="https://img.shields.io/badge/Glossary-54%2C918%20Words-success?style=flat" alt="54k Words">
+  <img src="https://img.shields.io/badge/Windows-10%2F11%20x64-blue?style=flat" alt="Windows 10/11">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--or--later-blue" alt="License: GPL-3.0-or-later"></a>
 </p>
 
-青简是一款输入法。你可以像平常一样打字：输入拼音、选择候选、写完整句；候选旁的一条译词，让语言学习自然发生在日常输入里。译词始终只是辅助信息，不会盖过你要输入的文字。
+---
 
-https://github.com/user-attachments/assets/d145fde9-a641-4543-8b15-dd7a2685de3d
+## 🌟 项目简介
 
-视频演示了青简在 macOS 上的整句输入、候选重排和候选译词。
+**青简·俄语专版（Qingjian-RU）** 是一款专为**俄语学习者、翻译人员及中俄双语工作者**打造的开源原生 Windows 输入法。
 
-## 下载与开始使用
-
-- **macOS、Windows**：[下载青简](https://qingjian.app/download)；安装步骤见[使用文档](https://qingjian.app/docs/getting-started/install)。
-- **Linux**：已有 Fcitx5 版本，使用系统默认候选面板；目前需要手动启动后台服务，详见 [Linux 安装说明](https://qingjian.app/docs/getting-started/linux)。
-
-macOS 与 Windows 版本仍处于测试阶段。安装后先选中青简，在「偏好设置 / 设置 → 通用」选择想学习的语言，就可以开始输入。第一次使用可从[第一次输入](https://qingjian.app/docs/getting-started/first-input)读起。
-
-## 输入时，你会看到什么
+在日常打字输入拼音时，输入法候选词侧边**实时呈现西里尔字母俄语翻译、规范词性标注（动词不定式原形、名词单数第一格、阳性形容词等）以及 ТРКИ (TORFL) 俄语考级难度标签**。让背单词与语法巩固自然融入到微信聊天、写文档、写代码的每一次敲击中。
 
 ```text
-1  开发        development
-2  编程        programming
-3  架构        architecture
+> ni
+ 1. 你       pron. ты
+ 2. 尼       n. монахиня
+ 3. 妮       n. девочка
+
+> kaifa
+ 1. 开发     v. разрабатывать · n. разработка
+
+> nihao
+ 1. 你好     int. привет · int. здравствуйте
 ```
 
-候选旁一次只显示一种学习语言的译词。目前可以选择英语、日语或西班牙语，也可以关闭译词显示。青简还支持整句输入、简拼、拼写纠错、双拼、五笔等输入方式；本地整句模型会在停顿后调整句子候选。
+---
 
-「统计」页还会显示今天、最近 7 天和累计的输入量，以及学习语言的词汇记录。详细用法见[输入功能](https://qingjian.app/docs/input)、[译词与生词](https://qingjian.app/docs/learning/translation)、[本地统计](https://qingjian.app/docs/learning/statistics)和[按键与快捷键](https://qingjian.app/docs/getting-started/keys)。
+## ✨ 核心特性
 
-## 数据与隐私
+- 📚 **54,918 条高质量西里尔俄语词库**：
+  - 严谨覆盖 **1,000+ 高频基础汉字单字**（你我他她、是否在有、好大多少、听说读写等），彻底消灭常见字无标注盲区。
+  - 收录日常交际、科技办公、工程算法等数万条生活与技术词汇。
+- 🎓 **ТРКИ (TORFL / CEFR) 考级难度分级追踪**：
+  - 挂载全套 ТРКИ 俄语词汇考级数据库（A1 初级到 C2 母语级）。打字时自动标记词汇等级，量化词汇量。
+- ⚡ **9.2 万全量基础拼音词库 + 整句预测**：
+  - 内置完整 9.2 万基础词库与 Viterbi 解码算法，全拼、简拼（如 `wjszd` -> 我就是知道）、长句连打行云流水。
+- 🪟 **原生 Windows Text Services Framework (TSF) 架构**：
+  - 基于微软官方 TSF 规范深度开发，UI 采用现代 WinUI 3 原生渲染，毫秒级响应，告别卡顿与选框漂移。
+- 🛡️ **绝对离线与隐私安全**：
+  - 拼音转换与词典检索 100% 在本机本地完成；零弹窗、零广告、无后台网络上传，纯粹干净。
 
-拼音转换、词库查询、本地模型和输入习惯学习在你的设备上完成。输入量与词汇统计也只保存在本机，不会上传；青简不需要账号。输入日志与统计分开保存，日志可在设置中关闭或清空，不影响统计。检查更新会向官网请求版本列表，可在设置中关闭。
+---
 
-可选的**云联想默认关闭**。开启后，青简会把当前输入和附近的文字直接发送给你自行填写的 AI 服务商，以获取候选或整句补全；请求不经过青简的服务器。发送范围与本机保存的数据，见[数据与日志](https://qingjian.app/docs/help/data-and-logs)。
+## 🚀 极速下载与安装体验
 
-## 文档、反馈与参与开发
+### 方式一：下载开箱即用便携绿色包（推荐）
 
-- [使用文档](https://qingjian.app/docs)：安装、设置、输入、卸载与常见问题。
-- [反馈问题或建议](https://github.com/qingjian-team/qingjian/issues/new/choose)；也可以加入 [QQ 内测交流群](https://qm.qq.com/q/jBvn2gGTxm)。
-- 想参与开发？从[开发文档](docs/)和[开发约定](docs/contributing.md)开始。
+1. 从 [Releases 页面](../../releases) 下载最新版的 **`Qingjian-RU-v0.1.5-windows-x64.zip`**；
+2. 解压压缩包到任意本地文件夹（例如 `D:\Software\Qingjian-RU`）；
+3. 鼠标右键以**管理员身份运行**里面的 **`install.bat`**：
+   - 脚本将自动完成 TSF 注册与服务启动；
+4. 按键盘 **`Win + 空格`** 切换到 **“青简”** 输入法，即可开始沉浸式俄语打字体验！
 
-青简在[官方渠道](https://qingjian.app/download)免费提供。代码采用 [GPL-3.0-or-later](LICENSE) 许可；项目名称与 logo 不包含在代码授权中。随包数据有各自的来源与许可，见[数据来源清单](docs/design/landscape.md)。
+*(如需卸载，右键管理员运行 `uninstall.bat` 即可一键干净清理输入法注册)*
+
+---
+
+### 方式二：从源码编译构建
+
+本仓库采用 Rust 开发，构建系统使用 Cargo：
+
+```powershell
+# 1. 克隆代码仓库
+git clone -b ru-dev https://github.com/GLEB07-Beep/qingjian-ru.git
+cd qingjian-ru
+
+# 2. 编译 Release 组件
+$env:QINGJIAN_UIACCESS = "0"
+cargo build --release -p qingjian-windows-server -p qingjian-windows-settings -p qingjian-cli -p qingjian-windows-tsf
+
+# 3. 运行命令行端到端测试
+target\release\qingjian-cli.exe --language ru ni
+target\release\qingjian-cli.exe --language ru kaifa
+```
+
+---
+
+## ⚙️ 设置与语言切换
+
+运行 `qingjian-settings.exe`，可在可视化面板中进行如下个性化定制：
+
+- **学习语言切换**：随时在 俄语 (ru) / 英语 (en) / 日语 (ja) / 西班牙语 (es) 或“不显示译文”间切换；
+- **候选词数量**：支持每页 5 ~ 9 个候选词；
+- **中英文一键切换**：打字过程中单击键盘 `Shift` 键即可一键切换中英文输入模式。
+
+---
+
+## 📖 架构与贡献
+
+- `crates/qingjian-core`: 拼音切分、输入方案与多语言引擎核心
+- `crates/qingjian-translate`: 释义表加载、ТРКИ 考级等级解析器与多层翻译器
+- `apps/windows/`: Windows TSF 动态库、后台守护进程与 WinUI 设置面板
+- `assets/glossary/glossary-ru.tsv`: 俄语西里尔释义数据库（严格 UTF-8 无 BOM、LF 换行、Unicode 升序排序）
+- `assets/levels/levels-ru.tsv`: ТРКИ (TORFL A1–C2) 俄语考级等级表
+
+欢迎提交 Issue 和 Pull Request 为俄语词库与输入体验添砖加瓦！
+
+---
+
+## 📄 许可证与致谢
+
+- 本项目基于上游优秀开源项目 [qingjian-team/qingjian](https://github.com/qingjian-team/qingjian) 进行深度扩展与俄语专版定制；
+- 代码部分采用 [GPL-3.0-or-later](LICENSE) 协议开源；
+- 俄语词库数据遵循 [MIT](LICENSE) / 开源词典衍生授权协议。
