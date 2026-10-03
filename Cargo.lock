@@ -2599,7 +2599,7 @@ checksum = "1d8f70e07b9c3962945a74e59ca1c511bba65b6419468acc217c457d93f3c740"
 
 [[package]]
 name = "qingjian-cli"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "clap",
  "dotenvy",
@@ -2621,7 +2621,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-core"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "ferrous-opencc",
  "foldhash",
@@ -2635,7 +2635,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-dict-convert"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "clap",
  "jiff",
@@ -2654,7 +2654,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-dictionary"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "qingjian-format",
  "thiserror 2.0.20",
@@ -2664,7 +2664,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-format"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "memmap2",
  "serde",
@@ -2676,7 +2676,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-gloss-gen"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "async-openai",
  "clap",
@@ -2692,7 +2692,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-learning"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "foldhash",
  "jiff",
@@ -2707,7 +2707,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-linux-server"
-version = "0.1.5-dev"
+version = "0.1.5-ru.1"
 dependencies = [
  "libc",
  "qingjian-core",
@@ -2727,7 +2727,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-lm"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "qingjian-core",
  "qingjian-format",
@@ -2738,7 +2738,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-macos"
-version = "0.1.5-dev"
+version = "0.1.5-ru.1"
 dependencies = [
  "dotenvy",
  "jiff",
@@ -2768,7 +2768,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-neural"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "candle-core",
  "candle-nn",
@@ -2782,7 +2782,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-platform"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "qingjian-core",
  "qingjian-dictionary",
@@ -2797,7 +2797,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-predict"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "async-openai",
  "qingjian-core",
@@ -2812,7 +2812,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-release-sign"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "base64 0.23.1",
  "clap",
@@ -2823,7 +2823,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-render"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "clap",
  "cosmic-text",
@@ -2836,7 +2836,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-translate"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "qingjian-core",
  "qingjian-format",
@@ -2847,7 +2847,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-update"
-version = "0.1.1"
+version = "0.1.5-ru.1"
 dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
@@ -2862,7 +2862,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-windows-server"
-version = "0.1.5-dev"
+version = "0.1.5-ru.1"
 dependencies = [
  "dotenvy",
  "embed-manifest",
@@ -2888,7 +2888,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-windows-settings"
-version = "0.1.5-dev"
+version = "0.1.5-ru.1"
 dependencies = [
  "jiff",
  "qingjian-core",
@@ -2909,7 +2909,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-windows-tsf"
-version = "0.1.5-dev"
+version = "0.1.5-ru.1"
 dependencies = [
  "qingjian-core",
  "qingjian-platform",

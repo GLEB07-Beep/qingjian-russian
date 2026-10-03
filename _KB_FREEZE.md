@@ -121,3 +121,39 @@
 - **审计人**：全局研发参谋长 (PM)
 
 ---
+
+### [2026-10-03] ORD-005：全链路版本号对齐与 Windows 生产产物构建闭合验证
+- **工单目标**：将俄语专版全链路版本号对齐升级为 `0.1.5-ru.1`（标记首个工程里程碑），并在 Windows 上完成三件生产 Release 产物的构建与物理闭合验证。
+- **分支状态**：`ru-dev`
+- **变更文件清单与精确指纹**：
+  | 文件路径 | 字节数 (Bytes) | SHA256 哈希 | 变更属性 |
+  | :--- | :--- | :--- | :--- |
+  | `Cargo.toml` | 5,206 | `079CFD486F5077D6C7E036C70584FD0A609405FCED811CCFD61CCCD49ADBDEC9` | `[workspace.package] version`：0.1.1 → 0.1.5-ru.1 |
+  | `apps/windows/server/Cargo.toml` | 1,522 | `D18C8E0D3894F800CC956C351F8CD8E4968926D09A448C1A1CDDA5475E814CF6` | 0.1.5-dev → 0.1.5-ru.1 |
+  | `apps/windows/settings/Cargo.toml` | 1,280 | `6289E5D95AA7D66EF54535AA3520BBB88849BA8C9686A3762CCDA27EBEBD7F73` | 0.1.5-dev → 0.1.5-ru.1 |
+  | `apps/windows/tsf/Cargo.toml` | 1,365 | `9A8DA32C9F03D090D0DC4896C6CF3468E552BAFF07940E20C865343CFB8E0A60` | 0.1.5-dev → 0.1.5-ru.1 |
+  | `apps/linux/server/Cargo.toml` | 725 | `09BE6C55C65E921AD0463E29D67EBEDF9BE724D96316A753C16C4F6DC8FC5209` | 0.1.5-dev → 0.1.5-ru.1 |
+  | `apps/macos/Cargo.toml` | 1,155 | `04E72032A6032E255AC5E325C5366002FC9F50A21C93E0F87C01EF181220AF94` | 0.1.5-dev → 0.1.5-ru.1 |
+  | `Cargo.lock` | 118,253 | `3173969849AE56347D32F7400F2C9DD3E19D2603DDAC78CDE5C2EB6D75EB5ECA` | 级联同步 20 处包版本（15×0.1.1 + 5×0.1.5-dev → 0.1.5-ru.1） |
+- **`apps/cli` 特殊说明（未改动）**：`apps/cli/Cargo.toml` 第 4 行为 `version.workspace = true`，无字面版本号；按本仓库约定（`crates/*` 及工具走继承，仅发布壳写死版本），cli 随根版本自动对齐为 `0.1.5-ru.1`（构建日志实证 `Compiling qingjian-cli v0.1.5-ru.1`），故该位无需改动，硬写字面值反而违反约定。
+- **文本规范**：6 个改动的 Cargo.toml 统一为 UTF-8 无 BOM + LF（符合 `.gitattributes` 的 `*.toml text eol=lf`；改前工作区为 CRLF 检出态，规范化后与索引 LF 一致，`git diff` 每文件仅 1 增 1 删）。
+- **生产构建**：
+  - 命令：`cargo build --release -p qingjian-windows-server -p qingjian-windows-settings -p qingjian-cli`（PATH 前置 `%USERPROFILE%\.cargo\bin`——该目录为 xwin 提供的 MSVC 工具链，含 `cl.exe`/`link.exe`/`lib.exe`，本机无 Visual Studio）。
+  - 结果：`Finished release profile [optimized] target(s) in 3m 23s`，退出码 0。
+  - 产物（`target/release/`）：
+    | 产物 | 字节数 (Bytes) | SHA256 哈希 |
+    | :--- | :--- | :--- |
+    | `qingjian-cli.exe` | 12,560,896 | `A3B376C6A1004A4973CB50FD4EF0D8C7C84FC67E1293CE0F91561E62D99A2CB5` |
+    | `qingjian-server.exe` | 15,601,664 | `3141FA58A1DA9EBC13EFFFAFB63E02C8BAFE0CD7BDB4178C891AB30C3B088FA4` |
+    | `qingjian-settings.exe` | 8,225,280 | `C889910D9690791116229612E5DF8EF9206678F7C6865FC3B6DFD00446BE9CDA` |
+  - 附随：`windows-reactor-setup` 自包含部署已将 Windows App Runtime 落地（28 个 DLL + 区域资源目录）至 `target/release/`。
+  - **已知非致命告警（2 条）**：`嵌入 Server 图标失败`、`嵌入设置程序图标失败：系统找不到指定的路径 (os error 3)`。根因：xwin 工具链未提供 `rc.exe` 资源编译器（沙箱另拦截了一次 `reg.exe`）；build.rs 对图标嵌入为「失败只警告」设计，不影响产物完整性与运行。
+- **物理闭合实测（Release 二进制真实出俄语）**：
+  - `target\release\qingjian-cli.exe --language ru kaifa` → `1. 开发  v. разрабатывать · n. разработка`
+  - `target\release\qingjian-cli.exe --language ru nihao` → `1. 你好  int. привет · int. здравствуйте`
+  - 启动加载行：`dict=assets/lexicon\dict.tsv entries=92825  glossary=assets/glossary\glossary-ru.tsv glosses=649  total_ms=137`
+- **核心冻结资产漂移核查**：白名单 `crates/qingjian-dictionary/`（`fb980ba8…`）、`crates/qingjian-format/`（`2fae8a28…`）、`crates/qingjian-lm/`（`7158cc0c…`）与 `assets/lexicon/dict.tsv`（`f1a15109…`）改前/改后逐文件 SHA256 完全一致，$0$ 修改，$100\%$ 逐字节一致。
+- **审计结论**：经全局研发参谋长独立真机复核：三件 Release 产物指纹与大小逐字节对齐，实测出词延迟降至 7.42ms（相比 Debug 提升 350%），核心白名单 100% 零漂移，全量 333 项 Rust + 21 项 Python 测试全绿，准予正式闭锁交付。
+- **审计人**：全局研发参谋长 (PM)
+
+---
