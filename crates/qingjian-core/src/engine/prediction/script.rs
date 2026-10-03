@@ -8,16 +8,19 @@ pub fn translation_target(text: &str, learning: Language) -> Language {
     let mut han = 0usize;
     let mut kana = 0usize;
     let mut latin = 0usize;
+    let mut cyrillic = 0usize;
     for c in text.chars() {
         if is_kana(c) {
             kana += 1;
         } else if is_han(c) {
             han += 1;
+        } else if is_cyrillic(c) {
+            cyrillic += 1;
         } else if c.is_ascii_alphabetic() || is_latin_extended(c) {
             latin += 1;
         }
     }
-    let to_chinese = kana > 0 || latin >= han;
+    let to_chinese = kana > 0 || cyrillic > 0 || latin >= han;
     if to_chinese {
         return Language::Chinese;
     }
@@ -25,6 +28,10 @@ pub fn translation_target(text: &str, learning: Language) -> Language {
         Language::Chinese => Language::English,
         other => other,
     }
+}
+
+fn is_cyrillic(c: char) -> bool {
+    matches!(c as u32, 0x0400..=0x04FF | 0x0500..=0x052F)
 }
 
 fn is_han(c: char) -> bool {
@@ -42,6 +49,10 @@ fn is_latin_extended(c: char) -> bool {
 }
 
 #[cfg(test)]
+#[path = "_script_pre_v010.rs"]
+mod pre_script;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -54,6 +65,10 @@ mod tests {
         assert_eq!(
             translation_target("我想去吃饭。", Language::Japanese),
             Language::Japanese
+        );
+        assert_eq!(
+            translation_target("我想去吃饭", Language::Russian),
+            Language::Russian
         );
         // 没接释义表时学习语言是中文，译成英文
         assert_eq!(
@@ -80,6 +95,10 @@ mod tests {
             translation_target("東京へ行きます", Language::English),
             Language::Chinese
         );
+        assert_eq!(
+            translation_target("Привет, мир!", Language::Russian),
+            Language::Chinese
+        );
     }
 
     #[test]
@@ -96,6 +115,23 @@ mod tests {
         assert_eq!(
             translation_target("2026-09-05", Language::English),
             Language::Chinese
+        );
+    }
+
+    #[test]
+    fn tooth_check_pre_v010_cyrillic_with_hanzi_fails_to_translate_to_chinese() {
+        // In pre-v010, without cyrillic counting, Cyrillic letters are ignored in script counting.
+        // For text like "Привет世界", han=2, kana=0, latin=0, cyrillic ignored.
+        // to_chinese = kana > 0 || latin >= han -> 0 > 0 || 0 >= 2 -> false!
+        // So pre-v010 returns English instead of Chinese (Fails requirement)!
+        assert_eq!(
+            pre_script::translation_target("Привет世界", Language::English),
+            Language::English // Red evidence: pre-v010 fails to detect Cyrillic
+        );
+        // Whereas current implementation returns Chinese:
+        assert_eq!(
+            translation_target("Привет世界", Language::English),
+            Language::Chinese // Green: correctly detects Cyrillic and translates to Chinese
         );
     }
 }

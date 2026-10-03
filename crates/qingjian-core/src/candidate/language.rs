@@ -16,6 +16,9 @@ pub enum Language {
 
     /// 西班牙语。
     Spanish,
+
+    /// 俄语。
+    Russian,
 }
 
 impl Language {
@@ -26,6 +29,7 @@ impl Language {
             Self::English => "en",
             Self::Japanese => "ja",
             Self::Spanish => "es",
+            Self::Russian => "ru",
         }
     }
 }
@@ -43,10 +47,15 @@ impl FromStr for Language {
             "en" | "english" => Ok(Self::English),
             "ja" | "jp" | "japanese" => Ok(Self::Japanese),
             "es" | "es-es" | "spanish" => Ok(Self::Spanish),
+            "ru" | "ru-ru" | "russian" | "русский" => Ok(Self::Russian),
             other => Err(UnknownLanguage(other.to_owned())),
         }
     }
 }
+
+#[cfg(test)]
+#[path = "_language_pre_v010.rs"]
+mod pre_language;
 
 #[cfg(test)]
 mod tests {
@@ -59,6 +68,10 @@ mod tests {
         assert_eq!(" es-ES ".parse::<Language>().unwrap(), Language::Spanish);
         assert_eq!("Spanish".parse::<Language>().unwrap(), Language::Spanish);
         assert_eq!("zh-cn".parse::<Language>().unwrap(), Language::Chinese);
+        assert_eq!("ru".parse::<Language>().unwrap(), Language::Russian);
+        assert_eq!("RU".parse::<Language>().unwrap(), Language::Russian);
+        assert_eq!("Russian".parse::<Language>().unwrap(), Language::Russian);
+        assert_eq!("русский".parse::<Language>().unwrap(), Language::Russian);
     }
 
     #[test]
@@ -71,5 +84,18 @@ mod tests {
     fn codes_are_iso_639_1() {
         assert_eq!(Language::Spanish.code(), "es");
         assert_eq!(Language::Japanese.code(), "ja");
+        assert_eq!(Language::Russian.code(), "ru");
+    }
+
+    #[test]
+    fn tooth_check_pre_v010_fails_on_russian() {
+        assert_eq!(
+            "ru".parse::<pre_language::Language>().unwrap_err().0,
+            "ru"
+        );
+        assert_eq!(
+            "русский".parse::<pre_language::Language>().unwrap_err().0,
+            "русский"
+        );
     }
 }

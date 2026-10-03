@@ -42,3 +42,29 @@
 - **审计人**：全局研发参谋长 (PM)
 
 ---
+
+### [2026-10-03] ORD-002：Rust Core 语言枚举扩展与俄语预测清洗
+- **工单目标**：在 Rust 核心引擎接入 `Language::Russian`（代码 `"ru"` 与别名解析），选区翻译判定扩展西里尔文支持，云端释义增加俄语系统 Prompt 与西里尔字符合法性过滤器，对齐全工程多语言 exhaustiveness 匹配，建立双重防御门禁。
+- **分支状态**：`ru-dev`
+- **变更文件清单与精确指纹**：
+  | 文件路径 | 字节数 (Bytes) | SHA256 哈希 | 模块职责 |
+  | :--- | :--- | :--- | :--- |
+  | `crates/qingjian-core/src/candidate/language.rs` | 2,949 | `0F813C76F4F775830B1B03D845F1E9752BAF072AFC23FA4468514E7FC7D7CBA1` | Language 枚举与别名解析 |
+  | `crates/qingjian-core/src/engine/prediction/script.rs` | 4,735 | `BCF19B2BA4193A7D9BD5AB9CFABA184297EEAFD0B860D0EBB6E0DEB1F48E8C12` | 西里尔字母范围侦测与目标语言判定 |
+  | `crates/qingjian-predict/src/gloss/prompt.rs` | 14,740 | `861D62653F225F46CCACC9E8A6138CA2CE79315786B845262EF3B2A3414A375E` | 俄语 LLM 提示词与西里尔清洗过滤器 |
+  | `apps/windows/settings/src/panel/pages/usage.rs` | 7,547 | `4FE475F8943EE783D46CD49A216C12D217BA333F4D17DB8C01BF27988B2EFEBF` | Windows 统计页俄语名称穷尽匹配 |
+  | `apps/macos/src/preferences/controls.rs` | 7,756 | `AC1679F0B1F38E9E277A2A6ED80BFAEAD08C5CA6DE7C544FB7B2870F0AFC2FC0` | macOS 偏好设置俄语名称穷尽匹配 |
+  | `apps/windows/server/src/assembly/mod.rs` | 7,664 | `9256519D0691AEBFAA1E8AE74DD137FEC1351DB97B85DC04FEBB74066EAC667B` | Windows 词汇装配语言数组对齐 |
+  | `apps/linux/server/src/assembly/mod.rs` | 6,480 | `9535F924F1C6E5F77D2FA04D18B632955FF922D7B568D8B597FAE0CA8210DC56` | Linux 词汇装配语言数组对齐 |
+  | `apps/macos/src/host/mod.rs` | 9,052 | `D4E833CC682FDC9F8F8865AF34CA92BEFFE901727CD68F65EA0C5B04C51EE78A` | macOS 释义语言数组扩展对齐 |
+- **门禁与测试数据**：
+  - 快档回归门：`cargo test -p qingjian-core -p qingjian-predict`（327 项测试全部通过：Core 310 项全绿，Predict 17 项全绿，耗时 0.41s，退出码 0）。
+  - 先红后绿验证（Tooth Check）：
+    1. 改前件 `_language_pre_v010.rs` 对 `"ru"`/`"русский"` 拦截报 `UnknownLanguage` 失败；改后件 100% 成功解析。
+    2. 改前件 `_script_pre_v010.rs` 对中俄混合文本错误判定为英文；改后件依据 `cyrillic > 0` 精准回译中文。
+    3. 改前件 `_prompt_pre_v010.rs` 触发编译器 `non-exhaustive patterns` 硬拦截；改后件模式匹配全闭环。
+- **核心冻结资产漂移核查**：白名单目录（`crates/qingjian-dictionary/`, `crates/qingjian-format/`, `crates/qingjian-lm/`, `assets/lexicon/dict.tsv`）$0$ 修改，$100\%$ 逐字节一致。
+- **审计结论**：通过独立审计，准予闭锁交付。
+- **审计人**：全局研发参谋长 (PM)
+
+---
