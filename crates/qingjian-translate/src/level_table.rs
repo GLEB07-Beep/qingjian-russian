@@ -24,15 +24,54 @@ const JAPANESE_SUFFIXES: [&str; 3] = ["する", "な", "だ"];
 
 impl LevelTable {
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self, GlossaryError> {
-        Self::parse(&std::fs::read_to_string(path)?)
+        let p = path.as_ref();
+        let content = match std::fs::read_to_string(p) {
+            Ok(content) => content,
+            Err(e) => {
+                if let Ok(manifest) = std::env::var("CARGO_MANIFEST_DIR") {
+                    let fallback = Path::new(&manifest).join("../../").join(p);
+                    if let Ok(content) = std::fs::read_to_string(fallback) {
+                        content
+                    } else {
+                        return Err(e.into());
+                    }
+                } else {
+                    return Err(e.into());
+                }
+            }
+        };
+        Self::parse(&content)
     }
 
     /// 解析；没有 `# levels` 行时等级按首次出现的顺序排。格式不对的行报错（这是随包数据，不该坏）。
     pub fn parse(source: &str) -> Result<Self, GlossaryError> {
+        if source.contains('\r') {
+            return Err(GlossaryError::Line {
+                line: 1,
+                reason: "carriage return (\\r) is strictly forbidden; only LF line endings are allowed".to_owned(),
+            });
+        }
         let mut table = Self::default();
         for (index, line) in source.lines().enumerate() {
-            if let Some(rest) = line.strip_prefix("# levels\t") {
-                table.levels = rest.split('\t').map(str::to_owned).collect();
+            if line.starts_with("# levels") {
+                let Some(rest) = line.strip_prefix("# levels\t") else {
+                    return Err(GlossaryError::Line {
+                        line: index + 1,
+                        reason: "corrupted levels header: expected `# levels\\t<L1>\\t<L2>...`".to_owned(),
+                    });
+                };
+                let levels: Vec<String> = rest
+                    .split('\t')
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_owned)
+                    .collect();
+                if levels.is_empty() {
+                    return Err(GlossaryError::Line {
+                        line: index + 1,
+                        reason: "corrupted levels header: no levels specified".to_owned(),
+                    });
+                }
+                table.levels = levels;
                 table.sizes = vec![0; table.levels.len()];
                 continue;
             }
@@ -45,6 +84,12 @@ impl LevelTable {
                     reason: "expected `word\\tlevel`".to_owned(),
                 });
             };
+            if word.is_empty() || level.is_empty() {
+                return Err(GlossaryError::Line {
+                    line: index + 1,
+                    reason: "word or level cannot be empty".to_owned(),
+                });
+            }
             let rank = match table.levels.iter().position(|l| l == level) {
                 Some(rank) => rank,
                 None => {
@@ -125,4 +170,53 @@ mod tests {
             Err(GlossaryError::Line { line: 1, .. })
         ));
     }
+
+    #[test]
+    fn parses_ru_levels_table_successfully() {
+        let table = LevelTable::from_path("assets/levels/levels-ru.tsv")
+            .expect("failed to load levels-ru.tsv");
+        assert_eq!(table.levels(), ["A1", "A2", "B1", "B2", "C1", "C2"]);
+        assert!(table.len() >= 1000, "expected at least 1000 words, got {}", table.len());
+        // 验证小写查词与大小写归一化
+        assert_eq!(table.level("привет"), Some("A1"));
+        assert_eq!(table.level("Привет"), Some("A1"));
+        assert_eq!(table.level("вокзал"), Some("A2"));
+        assert_eq!(table.level("система"), Some("B1"));
+        assert_eq!(table.level("алгоритм"), Some("B2"));
+        assert_eq!(table.level("парадигма"), Some("C1"));
+        assert_eq!(table.level("солипсизм"), Some("C2"));
+        for (i, lvl) in table.levels().iter().enumerate() {
+            assert!(table.size(i) > 0, "level {lvl} should have non-zero size");
+        }
+    }
+
+    #[test]
+    fn tooth_check_rejects_corrupted_header_and_carriage_return() {
+        // 故意破坏首行等级头（缺少 tab 分隔符）
+        assert!(matches!(
+            LevelTable::parse("# levels A1 A2 B1\nпривет\tA1\n"),
+            Err(GlossaryError::Line { line: 1, .. })
+        ));
+        // 故意破坏等级头（无等级列表）
+        assert!(matches!(
+            LevelTable::parse("# levels\t\nпривет\tA1\n"),
+            Err(GlossaryError::Line { line: 1, .. })
+        ));
+        // 包含非法换行符 \r (CRLF 变异数据)
+        assert!(matches!(
+            LevelTable::parse("# levels\tA1\tA2\r\nпривет\tA1\r\n"),
+            Err(GlossaryError::Line { line: 1, .. })
+        ));
+        // 缺少 tab 格式错误
+        assert!(matches!(
+            LevelTable::parse("# levels\tA1\nпривет\n"),
+            Err(GlossaryError::Line { line: 2, .. })
+        ));
+        // 单词或等级为空
+        assert!(matches!(
+            LevelTable::parse("# levels\tA1\n\tA1\n"),
+            Err(GlossaryError::Line { line: 2, .. })
+        ));
+    }
 }
+

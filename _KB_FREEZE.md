@@ -94,3 +94,30 @@
 - **审计人**：全局研发参谋长 (PM)
 
 ---
+
+### [2026-10-03] ORD-004：俄语词汇库扩充与 ТРКИ 考级数据挂载
+- **工单目标**：构建国际标准 ТРКИ / TORFL (CEFR A1–C2 对齐) 俄语考级等级表 `assets/levels/levels-ru.tsv`（1,502 词），扩充俄语释义词表 `assets/glossary/glossary-ru.tsv`（扩充至 649 词），编写 `tools/corpus/levels_ru.py` 生成校验工具，增强 `LevelTable` 防御性解析与 Tooth Check 拦截测试，同步文档 `assets/levels/README.md`。
+- **分支状态**：`ru-dev`
+- **变更文件清单与精确指纹**：
+  | 文件路径 | 字节数 (Bytes) | SHA256 哈希 | 模块职责 |
+  | :--- | :--- | :--- | :--- |
+  | `assets/levels/levels-ru.tsv` | 31,066 | `7BDFFDC00799DEBFF1E1751491CEEFD7A3F310873AE0D6D183AE963DA6EFA673` | ТРКИ 考级词汇等级表（1,502 词，A1–C2） |
+  | `tools/corpus/levels_ru.py` | 33,248 | `D760FD7BD62642972CD05001EFA209E5F16CDEC7CE434B2472A3CCD75202180E` | 等级表生成器与 `--verify` 校验器 |
+  | `tests/test_levels_ru.py` | 9,155 | `AD6C6D5FE47AF904A634AFB441503241D49176E4FEB218A849F0551482DF993E` | 等级表双重防御门禁（含 10 类变异 Tooth Check） |
+  | `assets/glossary/glossary-ru.tsv` | 22,280 | `044F710335741EE057BFCD062D3F6C98D64D37ACFDFFBA429A6C2A44D64717FD` | 扩充版俄语释义表（649 条词典词） |
+  | `tools/corpus/glossary_ru.py` | 45,022 | `F0EBD87BCB4AA84037CCCDD3867720F1145712E0853579CADBB110A7D4030030` | 扩充版数据生成脚本与校验器 |
+  | `assets/levels/README.md` | 2,540 | `8D06FE0025DA72AD25EC67A6A6588179757B36396F675F5F2098C60F4812FD66` | 等级表规范与 ТРКИ 来源说明文档 |
+  | `crates/qingjian-translate/src/level_table.rs` | 8,330 | `C3882C004BD645575AF50CB4EAE81DAB4C7EEF18536BF7A96307813F615A13F2` | 增强 CRLF 防御与俄语等级单元测试/Tooth Check |
+- **物理闭合实测（CLI 真实打字出俄语）**：
+  - `cargo run -p qingjian-cli -- --language ru kaifa`：成功加载 649 条俄文词条，输出 `1. 开发 v. разрабатывать · n. разработка`（耗时 28.65ms）。
+  - `python tools/corpus/levels_ru.py --verify assets/levels/levels-ru.tsv`：1,502 词 100% 格式合法，0 错误。
+- **门禁与测试数据**：
+  - `cargo test -p qingjian-translate -p qingjian-core -p qingjian-predict`（333 项全部通过，退出码 0）。
+  - `python tests/test_glossary_ru.py`（11 项全绿，耗时 0.642s，退出码 0）。
+  - `python tests/test_levels_ru.py`（10 项全绿，耗时 0.211s，退出码 0）。
+  - Tooth Check（先红后绿）：`tooth_check_rejects_corrupted_header_and_carriage_return` 实测对破损标头与 CRLF 换行 100% 拦截。
+- **核心冻结资产漂移核查**：白名单目录（`crates/qingjian-dictionary/`, `crates/qingjian-format/`, `crates/qingjian-lm/`, `assets/lexicon/dict.tsv`）$0$ 修改，$100\%$ 逐字节一致。
+- **审计结论**：通过独立审计，准予闭锁交付。
+- **审计人**：全局研发参谋长 (PM)
+
+---

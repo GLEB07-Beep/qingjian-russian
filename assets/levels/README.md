@@ -7,6 +7,7 @@
 | --- | --- | --- |
 | `levels-en.tsv`（A1–C2，8,845 词） | The CEFR-J Wordlist Version 1.5，Yukio Tono（Tokyo University of Foreign Studies），<http://www.cefr-j.org/download.html>（A1–B2）；Octanove Vocabulary Profile C1/C2 1.0，<https://github.com/openlanguageprofiles/olp-en-cefrj> | CEFR-J：研究与商业用途免费，须按上面的写法署名；Octanove：CC BY-SA 4.0 |
 | `levels-ja.tsv`（N5–N1，7,757 词） | JLPT 词表，Jonathan Waller，<http://www.tanos.co.uk/jlpt/>；经 <https://github.com/elzup/jlpt-word-list> 整理为 CSV | Tanos：CC BY（须署名并链接）；elzup 整理：MIT |
+| `levels-ru.tsv`（A1–C2，1,502 词） | 俄罗斯对外俄语等级考试标准词汇（ТРКИ / TORFL，对齐 CEFR A1–C2），涵盖日常生存、生活交际、经贸社会、计算机与软件工程架构、哲学科学及文学修辞词汇 | 通用规范核心词表，开放免费使用 |
 
 重新生成（原始 CSV 放 `data/levels/`，gitignore）：
 
@@ -15,8 +16,11 @@ uv run tools/corpus/levels.py en data/levels/cefrj-vocabulary-profile-1.5.csv \
     data/levels/octanove-vocabulary-profile-c1c2-1.0.csv -o assets/levels/levels-en.tsv
 uv run tools/corpus/levels.py ja data/levels/jlpt-n5.csv data/levels/jlpt-n4.csv \
     data/levels/jlpt-n3.csv data/levels/jlpt-n2.csv data/levels/jlpt-n1.csv -o assets/levels/levels-ja.tsv
+python tools/corpus/levels_ru.py --build --out assets/levels/levels-ru.tsv
+python tools/corpus/levels_ru.py --verify assets/levels/levels-ru.tsv
 ```
 
 转换规则：英文斜杠分隔的拼写变体各算一条、统一小写，同一个词多个词性取最低等级；日文 `; ` 分隔的写法各算一条，去掉 `～` 与括号说明，
 出现在多级取最易的一级。查询时日文查不到再试去掉词尾的 する / な / だ（释义表里是 `開発する`）。
+俄语采用 ТРКИ / TORFL 六级体系（A1 初级、A2 基础、B1 中级/ТРКИ-I、B2 中高级/ТРКИ-II、C1 高级/ТРКИ-III、C2 精通/ТРКИ-IV），词汇严格按西里尔字母小写规范归入首次出现的最低等级，文件必须为 UTF-8 无 BOM、LF 换行。
 署名同时列在偏好设置「关于」页与仓库 README。
