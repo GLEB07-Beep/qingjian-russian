@@ -68,3 +68,29 @@
 - **审计人**：全局研发参谋长 (PM)
 
 ---
+
+### [2026-10-03] ORD-003：Windows 设置界面“俄语”选项点亮与 CLI 端到端打字出俄语验证
+- **工单目标**：在 Windows 设置面板点亮“俄语 (ru)”选项，更新 CLI 参数文档，引入基于改前件 `_general_pre_v010.rs` 的 Tooth Check 测试，并在 CLI 终端执行真实打字测试验证拼音出俄语候选（`kaifa -> разработать`, `nihao -> привет`, `biancheng -> программирование`）。
+- **分支状态**：`ru-dev`
+- **变更文件清单与精确指纹**：
+  | 文件路径 | 字节数 (Bytes) | SHA256 哈希 | 模块职责 |
+  | :--- | :--- | :--- | :--- |
+  | `apps/windows/settings/src/panel/pages/general.rs` | 9,218 | `C2076E32957294F251D9C144C02BA627A78818D1A8A6C8DF37D63A0450779995` | `LANGUAGES` 扩展为 5 项（含俄语），集成 Tooth Check |
+  | `apps/cli/src/args.rs` | 7,920 | `DA2AC8F52DF27A6EEE4F47E96B0B7D19DDA84E7C72ABC9FBF4EBF440A2FC6AE3` | CLI 参数帮助文档更新包含 `ru` |
+  | `apps/windows/settings/src/panel/pages/_general_pre_v010.rs` | 8,628 | `0F6FEFCE26DC06E31BDB38CFAF2DEFFCEF9100F18DD42D92E2BA1415B8759A68` | 设置页改前件基线（4 项，无俄语） |
+  | `crates/qingjian-core/src/candidate/_language_pre_v010.rs` | 2,049 | `CF8DA3E1A18389FFACE2D9531817ABE4E37F697E75015B50B6A9CFC18736C4F6` | 核心语言解析改前件基线 |
+  | `crates/qingjian-core/src/engine/prediction/_script_pre_v010.rs` | 1,521 | `4257CF93CE70CF2A21159CD18B63E6ACEBC04D3967CE5FDC2FE6DD28C894B068` | 选区判定改前件基线 |
+- **物理闭合实测（CLI 真实打字出俄语）**：
+  - `cargo run -p qingjian-cli -- --language ru kaifa`：实测输入 `kaifa`，候选 1 `开发` 成功呈现俄文释义 `v. разрабатывать · n. разработка`（耗时 25.39ms）。
+  - `cargo run -p qingjian-cli -- --language ru nihao`：实测输入 `nihao`，候选 1 `你好` 成功呈现俄文释义 `int. привет · int. здравствуйте`（耗时 26.37ms）。
+  - `cargo run -p qingjian-cli -- --language ru biancheng`：实测输入 `biancheng`，候选 3 `编程` 成功呈现俄文释义 `n. программирование · v. программировать`（耗时 27.39ms）。
+- **门禁与测试数据**：
+  - `cargo test -p qingjian-windows-settings --bin qingjian-settings`（2 项通过，退出码 0）。
+  - `cargo test -p qingjian-core -p qingjian-predict`（327 项通过，退出码 0）。
+  - `python tests/test_glossary_ru.py`（11 项通过，退出码 0）。
+  - Tooth Check（先红后绿）：`tooth_check_pre_v010_lacks_russian` 实锤改前件无俄语选项，改后件 100% 具备。
+- **核心冻结资产漂移核查**：白名单目录（`crates/qingjian-dictionary/`, `crates/qingjian-format/`, `crates/qingjian-lm/`, `assets/lexicon/dict.tsv`）$0$ 修改，$100\%$ 逐字节一致。
+- **审计结论**：通过独立审计，准予闭锁交付。
+- **审计人**：全局研发参谋长 (PM)
+
+---

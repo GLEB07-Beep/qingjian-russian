@@ -7,11 +7,10 @@ use crate::panel::controls::{feedback, field, index_of, page};
 use crate::panel::{Message, Settings};
 
 /// 学习语言：界面名 + 配置写法。
-pub(crate) const LANGUAGES: [(&str, &str); 5] = [
+pub(crate) const LANGUAGES: [(&str, &str); 4] = [
     ("英语", "en"),
     ("日语", "ja"),
     ("西班牙语", "es"),
-    ("俄语", "ru"),
     ("不显示译文", "off"),
 ];
 
@@ -179,27 +178,4 @@ fn switch_key_boxes(settings: &Settings, context: &mut ViewContext<Settings>) ->
         .orientation(Orientation::Horizontal)
         .spacing(12.0)
         .children(boxes)
-}
-
-#[cfg(test)]
-#[allow(dead_code)]
-#[path = "_general_pre_v010.rs"]
-mod pre_general;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn languages_has_five_options_including_russian() {
-        assert_eq!(LANGUAGES.len(), 5);
-        assert!(LANGUAGES.contains(&("俄语", "ru")));
-    }
-
-    #[test]
-    fn tooth_check_pre_v010_lacks_russian() {
-        assert_eq!(pre_general::LANGUAGES.len(), 4);
-        assert!(!pre_general::LANGUAGES.contains(&("俄语", "ru")));
-        assert!(pre_general::LANGUAGES.iter().all(|&(_, code)| code != "ru"));
-    }
 }
