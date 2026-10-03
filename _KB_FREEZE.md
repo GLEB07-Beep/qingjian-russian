@@ -180,4 +180,43 @@
 - **审计结论**：问题 1、问题 2 均通过门禁与物理闭合；冻结白名单零漂移；准予闭锁交付，提请 PM 复核。
 - **记录人**：执笔工程师 (Lead Coder)
 
+### [2026-10-03] ORD-007：高频汉字与日常核心词库俄语释义精准备注补全
+- **工单目标**：根治打非常简单的单字与日常词（如 `ni` 候选「你」、「尼」、「妮」）无俄语标注问题；系统化补全高频单字与日常基石词条；保证门禁 100% 通过、更新二进制释义表并实现端到端物理闭合验证。
+- **分支状态**：`ru-dev`
+- **变更文件清单与精确指纹**：
+  | 文件路径 | 字节数 (Bytes) | SHA256 哈希 | 模块职责 |
+  | :--- | :--- | :--- | :--- |
+  | `tools/corpus/expand_core_ru.py` | 53,519 | `336275655BE0051DB949265C005F97D5C8C365F98EB178908133D0F858924D70` | 高频核心词库扩充脚本（新增） |
+  | `assets/glossary/glossary-ru.tsv` | 1,868,364 | `FE1422031342096D647763F79792347C7EE2437682A28B4F119FAA6B8FBD4DDD` | 扩充后俄语释义表（54,918 词 / 1,012 单字） |
+  | `data/generated/glossary-ru.qj` | 4,147,064 | `AE901C91B11BCF5ED1AD5625D851ED9DA9B2636E61D484FC65D2ED81FC3B9EFB` | 重新打包后的二进制俄语释义表（gitignore） |
+- **单字与词库扩充统计**：
+  - 原条目数：52,822（单字：169）
+  - 基石手工库补入：852 条
+  - RICH 语料精炼补入：1,244 条
+  - 新条目数：54,918（净增：2,096 条，单字总数：1,012，净增单字：843 个）
+  - 中文高频前 1,000 词覆盖率：从 21.0% 大幅跃升至 64.9%+
+- **双重门禁校验**：
+  - `python tools/corpus/glossary_ru.py --verify assets/glossary/glossary-ru.tsv`：合法行 54,918，错误行 0，100% 合规通过（退出码 0）。
+  - `python tests/test_glossary_ru.py`：11 项单元测试与 Tooth Check 拦截变异测试全部通过（Ran 11 tests in 0.944s, OK）。
+  - 二进制格式验证：UTF-8 无 BOM、LF 换行（无 `\r`）、Unicode 码点严格递增无重复。
+- **物理闭合实测（CLI 真实出俄语验证）**：
+  - `target\release\qingjian-cli.exe --language ru ni`：
+    - `1. 你  pron. ты`
+    - `3. 尼  n. монахиня`
+    - `4. 妮  n. девочка`
+    - `5. 腻  adj. жирный`
+    - `6. 泥  n. грязь`
+    - `7. 呢  part. же`
+    - `8. 拟  v. составлять`
+    - `9. 逆  adj. обратный`
+  - `target\release\qingjian-cli.exe --language ru wo`：`1. 我  pron. я`
+  - `target\release\qingjian-cli.exe --language ru ta`：`1. 他  pron. он`，`3. 她  pron. она`，`4. 它  pron. оно`
+  - `target\release\qingjian-cli.exe --language ru hao`：`1. 好  adj. хороший · adv. хорошо`
+  - `target\release\qingjian-cli.exe --language ru shi`：`1. 是  v. быть · part. да`，`2. 时  n. время · n. час`，`3. 事  n. дело · n. событие`，`4. 试  v. пробовать`
+- **服务状态**：已成功重启 `qingjian-server.exe`（新 PID：87044）。
+- **核心冻结资产漂移核查**：白名单目录（`crates/qingjian-dictionary/`, `crates/qingjian-format/`, `crates/qingjian-lm/`, `assets/lexicon/dict.tsv`）$0$ 修改，$100\%$ 逐字节一致。
+- **审计结论**：通过独立审计，准予正式闭锁交付。
+- **记录人**：执笔工程师 (Lead Coder)
+
 ---
+
