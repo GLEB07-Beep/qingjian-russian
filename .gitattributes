@@ -1,0 +1,10 @@
+# 强制 LF 换行，防止 Windows git autocrlf 破坏 TSV 词库与源码
+* text=auto eol=lf
+*.tsv text eol=lf
+*.rs text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.qj binary
+*.qjm binary
