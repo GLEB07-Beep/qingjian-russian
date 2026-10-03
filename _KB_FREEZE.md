@@ -157,3 +157,27 @@
 - **审计人**：全局研发参谋长 (PM)
 
 ---
+
+### [2026-10-03] ORD-006：核心词库装配修复与 5 万本地俄语词库接入
+- **工单目标**：修复桌面端中文输入（产出 `data/generated/dict.qj`）；把本地俄语词典 `dict_full.json`（62,786 条）清洗合并进 `assets/glossary/glossary-ru.tsv`。
+- **分支状态**：`ru-dev`；起始工作区含 3 项未跟踪文件（`install.bat` / `restore.bat` / `scripts/`）。
+- **PM 三项裁定（本会话）**：① `dict.qj` 元数据采纳 `assets/lexicon/QINGJIAN.md` 权威值；② 解除 `pack lm` 阻塞、跳过 LM（本就可选降级，实测无 LM 整句正常）；③ 未跟踪脚本保留本地、不提交。
+- **变更文件清单与精确指纹**：
+  | 文件路径 | 字节数 (Bytes) | SHA256 哈希 | 说明 |
+  | :--- | :--- | :--- | :--- |
+  | `assets/glossary/glossary-ru.tsv` | 1,804,503 | `10B0FBF02FA30C4157A5A2C32E5218384DFE8E2DC2383042EC4473765DC0E117` | 649 种子 → **52,822** 词 |
+  | `tools/corpus/merge_local_ru.py` | 4,929 | `29F5BF208ECE4C94B317CC5674B337031B45BDC8966558DD677A0A979E9B88BC` | 合并清洗工具（新增） |
+  | `data/generated/dict.qj` | 3,538,656 | `CA85E03D50967CC8EA757941BB36E4FDE0CDE445A86A9DE498CBBCF189A551FF` | 全量拼音词库（gitignore，不随 git） |
+- **问题 1（词库装配）**：`pack dict --input assets/lexicon/dict.tsv` → 92,825 词；元数据按文档取 `--name 青简基础词库 --license "MIT AND Unicode-3.0"`（**非**工单所给 `CC-BY-SA-4.0`，PM 已裁定采纳）。
+- **问题 2（俄语词库接入）**：种子 649 条保留最高优先级；`dict_full.json` 经 OpenCC `t2s` 转简 + 词性映射（verb→v./adj→adj./adv→adv./其余→n.）+ 西里尔正则/长度/词数过滤 → 新增 52,173 词、60,337 释义，跳过 2,449。
+- **门禁与测试**：
+  - `tools/corpus/glossary_ru.py --verify assets/glossary/glossary-ru.tsv`：合法行 52,822，错误行 0，输出「校验通过：100% 合规！」，退出码 0。
+  - `python tests/test_glossary_ru.py`：**11 项全绿**（黄金标准 + 变异拦截 Tooth Check）。
+  - 二进制规范：UTF-8 无 BOM、纯 LF（CR=0）、首列码点严格递增无重复。
+- **物理闭合实测**：`qingjian-cli --language ru baogao` → `1. 报告 n. отчёт · n. доклад`；新条目 `均势 n. равновесия` 生效；`qingjian-cli --dict data/generated/dict.qj nage` → 194 命中（样例库 4）。
+- **核心冻结资产漂移核查**：白名单 `crates/qingjian-dictionary/`（`fb980ba8…`）、`crates/qingjian-format/`（`2fae8a28…`）、`crates/qingjian-lm/`（`7158cc0c…`）、`assets/lexicon/dict.tsv`（`f1a15109…`）改前/改后逐字节一致，$0$ 修改，$100\%$ 逐字节一致。
+- **已知 caveat（如实记录）**：`dict_full.json` 的 `pos` 99.86% 为 noun、`gender` 全空，故新条目词性几乎全为 `n.`；门禁不校验名词格，`plain` 存在少量非第一格形式（如 `n. равновесия`）；`cn`/`plain` 含数字或拉丁的条目（如 `Зона 51`）被西里尔正则过滤。
+- **审计结论**：问题 1、问题 2 均通过门禁与物理闭合；冻结白名单零漂移；准予闭锁交付，提请 PM 复核。
+- **记录人**：执笔工程师 (Lead Coder)
+
+---
