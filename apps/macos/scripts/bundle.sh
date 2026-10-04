@@ -75,6 +75,15 @@ cp assets/levels/levels-*.tsv "$APP/Contents/Resources/"
 # 五笔码表（输入方案选五笔时用，见 assets/wubi/README.md；极点 86 码表，Apache-2.0）
 mkdir -p "$APP/Contents/Resources/wubi"
 cp assets/wubi/wubi86.tsv "$APP/Contents/Resources/wubi/"
+# 如果没有预先生成的 dict.qj，自动从 assets/lexicon/dict.tsv 全量编译打包
+if [[ ! -f data/generated/dict.qj && -f assets/lexicon/dict.tsv ]]; then
+  mkdir -p data/generated
+  cargo run --release -q -p qingjian-dict-convert -- pack dict --input assets/lexicon/dict.tsv \
+    --name "青简基础词库" --license "MIT AND Unicode-3.0" \
+    --attribution "通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）" \
+    --source https://github.com/qingjian-team/qingjian/tree/main/assets/lexicon
+fi
+
 if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
   # 词库与语言模型打成 .qj（mmap 直接用），TSV 比 .qj 新时重新打包；只有 .qj（CI 从数据包解出来的）就直接用
   if [[ -f data/generated/dict.tsv && ( ! -f data/generated/dict.qj || data/generated/dict.tsv -nt data/generated/dict.qj ) ]]; then
@@ -116,13 +125,16 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     echo "打包含章·通变：$p2c_dir/hanzhang-tongbian-small.qjm"
   fi
   # 释义表打成 .qj（TSV 比 .qj 新时重打），英文词表仍是 TSV。各表来源不同，元数据按表写（见 assets/glossary/README.md）
-  for lang in en ja zh es; do
+  for lang in en ja zh es ru; do
     src="assets/glossary/glossary-$lang.tsv"
     out="data/generated/glossary-$lang.qj"
     [[ -f "$src" ]] || continue
     if [[ "$lang" == es ]]; then
       license="GPL-3.0-or-later"
       attribution="Azure Translator 机器翻译（Tofuzhu，tools/corpus/glossary_es.py）"
+    elif [[ "$lang" == ru ]]; then
+      license="MIT"
+      attribution="青简俄语专版（Qingjian-RU，GLEB07-Beep）"
     else
       license="MIT"
       attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"

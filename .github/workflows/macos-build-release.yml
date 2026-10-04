@@ -1,0 +1,117 @@
+name: macOS Build & Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'GitHub Release Tag to upload pkg (e.g. v0.1.5-ru.1)'
+        required: false
+        default: 'v0.1.5-ru.1'
+  push:
+    tags:
+      - 'v*'
+      - 'macos-v*'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  macos-build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: macos-build-v1
+
+      - name: Run Core & Platform Unit Tests
+        run: |
+          cargo test -p qingjian-core --locked
+          cargo test -p qingjian-translate --locked
+          cargo test -p qingjian-learning --locked
+          cargo test -p qingjian-macos --locked
+
+      - name: Run Russian Lexicon & Levels Verification
+        run: |
+          python3 tools/corpus/glossary_ru.py --verify assets/glossary/glossary-ru.tsv
+          python3 tests/test_glossary_ru.py
+          python3 tests/test_levels_ru.py
+
+      - name: Pre-build Product Lexicon & Russian Glossary
+        run: |
+          mkdir -p data/generated
+          cargo run --release -q -p qingjian-dict-convert -- pack dict --input assets/lexicon/dict.tsv \
+            --name "青简基础词库" --license "MIT AND Unicode-3.0" \
+            --attribution "通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）" \
+            --source https://github.com/qingjian-team/qingjian/tree/main/assets/lexicon
+          cargo run --release -q -p qingjian-dict-convert -- pack glossary --language ru --input assets/glossary/glossary-ru.tsv \
+            --name "青简释义表（ru）" --license "MIT" --attribution "青简俄语专版（Qingjian-RU，GLEB07-Beep）"
+
+      - name: Build macOS Installer (.pkg) for Apple Silicon (arm64)
+        run: |
+          QINGJIAN_TARGET=aarch64-apple-darwin apps/macos/scripts/bundle.sh --pkg
+
+      - name: Verify Bundle Integrity (Guard against sample fallback)
+        run: |
+          echo "Checking bundled app resources..."
+          ls -lh target/Qingjian.app/Contents/Resources/
+          DICT_SIZE=$(stat -f%z "target/Qingjian.app/Contents/Resources/dict.qj" 2>/dev/null || stat -c%s "target/Qingjian.app/Contents/Resources/dict.qj")
+          GLOSS_SIZE=$(stat -f%z "target/Qingjian.app/Contents/Resources/glossary-ru.qj" 2>/dev/null || stat -c%s "target/Qingjian.app/Contents/Resources/glossary-ru.qj")
+          echo "dict.qj size: $DICT_SIZE bytes"
+          echo "glossary-ru.qj size: $GLOSS_SIZE bytes"
+          if [ "$DICT_SIZE" -lt 3000000 ]; then
+            echo "ERROR: dict.qj is too small ($DICT_SIZE bytes). Full lexicon was not bundled!" >&2
+            exit 1
+          fi
+          if [ "$GLOSS_SIZE" -lt 4000000 ]; then
+            echo "ERROR: glossary-ru.qj is too small ($GLOSS_SIZE bytes). 54k Russian glossary was not bundled!" >&2
+            exit 1
+          fi
+          test -f "target/Qingjian.app/Contents/Resources/levels-ru.tsv" || {
+            echo "ERROR: levels-ru.tsv was not bundled!" >&2
+            exit 1
+          }
+          echo "Bundle integrity verified: 100% complete!"
+
+      - name: Build macOS Installer (.pkg) for Intel (x86_64)
+        run: |
+          QINGJIAN_TARGET=x86_64-apple-darwin apps/macos/scripts/bundle.sh --pkg
+
+      - name: List Generated Packages
+        run: |
+          ls -lh target/pkg/
+          shasum -a 256 target/pkg/*.pkg
+
+      - name: Upload Artifacts to GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: qingjian-macos-pkg
+          path: target/pkg/*.pkg
+
+      - name: Attach PKG Installers to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.event.inputs.release_tag || github.ref_name }}
+        run: |
+          echo "Checking release tag: $TAG_NAME"
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Uploading pkg installers to release $TAG_NAME..."
+            gh release upload "$TAG_NAME" target/pkg/*.pkg --clobber
+            echo "Upload completed successfully!"
+          else
+            echo "Release $TAG_NAME not found yet. Artifacts are safely stored in workflow artifacts."
+          fi
