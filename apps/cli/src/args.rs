@@ -41,8 +41,8 @@ pub struct Args {
     #[arg(long)]
     pub glossary: Option<PathBuf>,
 
-    /// 学习语言：en / ja / es / ru。也可用环境变量 QINGJIAN_LEARNING_LANGUAGE
-    #[arg(long, env = "QINGJIAN_LEARNING_LANGUAGE", default_value = "en")]
+    /// 学习语言：ru / en / ja / es。也可用环境变量 QINGJIAN_LEARNING_LANGUAGE
+    #[arg(long, env = "QINGJIAN_LEARNING_LANGUAGE", default_value = "ru")]
     pub language: String,
 
     /// 附加词库（.qj 或 TSV），可给多个，与主词库一起查

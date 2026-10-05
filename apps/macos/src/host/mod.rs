@@ -205,10 +205,10 @@ const VOCABULARY_FILE: &str = "user-vocab.tsv";
 
 /// 可能打进包里的释义表语言，按这个顺序在设置里列出；文件不存在的不列。
 const GLOSSARY_LANGUAGES: [Language; 4] = [
+    Language::Russian,
     Language::English,
     Language::Japanese,
     Language::Spanish,
-    Language::Russian,
 ];
 
 /// 在单例上执行操作。未初始化、不在主线程、或正处在另一次 `with` 之内（重入）时返回 `None`。

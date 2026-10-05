@@ -8,10 +8,10 @@ use crate::panel::{Message, Settings};
 
 /// 学习语言：界面名 + 配置写法。
 pub(crate) const LANGUAGES: [(&str, &str); 5] = [
+    ("俄语", "ru"),
     ("英语", "en"),
     ("日语", "ja"),
     ("西班牙语", "es"),
-    ("俄语", "ru"),
     ("不显示译文", "off"),
 ];
 

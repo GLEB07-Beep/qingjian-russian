@@ -196,8 +196,8 @@ pub const TEMPLATE: &str = concat!(
     r#"# 青简输入法配置。保存后自动生效；也可以在菜单栏的输入法菜单里改。
 
 [general]
-# 学习语言（en 英语 / ja 日语 / es 西班牙语 / off 不显示译文）：候选旁显示哪种语言的译文，要有对应的释义表才生效
-learning_language = "en"
+# 学习语言（ru 俄语 / en 英语 / ja 日语 / es 西班牙语 / off 不显示译文）：候选旁显示哪种语言的译文，要有对应的释义表才生效
+learning_language = "ru"
 # 每页候选数（1–9）
 page_size = 9
 # 翻页键对：前一个上一页、后一个下一页。可选 "[]" 或 ",."；选 ",." 的话组句中敲逗号句号是翻页而不是上屏加标点
@@ -583,7 +583,7 @@ mod tests {
         assert_eq!(config.general.theme, ThemeMode::Dark);
         assert_eq!(config.general.layout, LayoutMode::Horizontal);
         assert_eq!(config.general.preedit, PreeditMode::Window);
-        assert_eq!(config.general.learning_language, "en");
+        assert_eq!(config.general.learning_language, "ru");
         assert!(config.general.english_candidates);
         assert!(!config.general.traditional);
         assert_eq!(config.general.shuangpin(), None);

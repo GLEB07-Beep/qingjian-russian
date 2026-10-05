@@ -123,8 +123,8 @@ pub fn learning_language(config: &Config) -> Option<Language> {
     }
     let code = &config.general.learning_language;
     Some(code.parse().unwrap_or_else(|_| {
-        tracing::warn!(code, "不认识的学习语言，按英文");
-        Language::English
+        tracing::warn!(code, "不认识的学习语言，按俄语");
+        Language::Russian
     }))
 }
 
