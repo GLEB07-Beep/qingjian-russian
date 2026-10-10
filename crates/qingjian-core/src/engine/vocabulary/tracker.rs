@@ -19,6 +19,11 @@ pub trait VocabularyTracker: Send {
     fn summary(&self, _language: Language) -> VocabularySummary {
         VocabularySummary::default()
     }
+
+    /// 词的考级/大纲等级（如俄语 ТРКИ A1..C2，日语 N5..N1）。
+    fn level(&self, _language: Language, _word: &str) -> Option<String> {
+        None
+    }
 }
 
 /// 不记词汇：所有译词都算看熟了，候选里不标生词。

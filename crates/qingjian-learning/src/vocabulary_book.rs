@@ -158,6 +158,35 @@ impl VocabularyBook {
         summary
     }
 
+    /// 查询目标语言某个词或释义短语的考级等级。
+    /// 支持清洗重音符（`\u{0301}`）以及分词匹配。
+    pub fn level(&self, language: Language, word: &str) -> Option<String> {
+        let table = self
+            .levels
+            .iter()
+            .find(|(l, _)| *l == language)
+            .map(|(_, table)| table)?;
+        let cleaned: String = word.replace('\u{0301}', "");
+        let trimmed = cleaned.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        if let Some(level) = table.level(trimmed) {
+            return Some(level.to_owned());
+        }
+        // 分词匹配：按常见分隔符切词，遇到第一个在等级表里的词即返回
+        for token in trimmed.split(|c: char| !c.is_alphanumeric()) {
+            let token = token.trim();
+            if token.is_empty() {
+                continue;
+            }
+            if let Some(level) = table.level(token) {
+                return Some(level.to_owned());
+            }
+        }
+        None
+    }
+
     /// 写回文件（没有新记录就什么都不做）。
     pub fn save(&mut self) -> Result<(), LearningError> {
         let Some(path) = self.path.clone() else {
@@ -254,6 +283,10 @@ impl VocabularyTracker for VocabularyBook {
 
     fn summary(&self, language: Language) -> VocabularySummary {
         self.summary_on(language, today())
+    }
+
+    fn level(&self, language: Language, word: &str) -> Option<String> {
+        self.level(language, word)
     }
 }
 
@@ -364,4 +397,43 @@ mod tests {
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }
+
+    #[test]
+    fn level_lookup_supports_accent_stripping_and_tokenization() {
+        let table = LevelTable::parse(
+            "# levels\tA1\tA2\tB1\nты\tA1\nдевочка\tA1\nпривет\tA1\nвокзал\tA2\nсистема\tB1\n",
+        )
+        .unwrap();
+        let book = VocabularyBook::default().with_levels(Language::Russian, table);
+
+        // 1. 直接查询与大小写归一
+        assert_eq!(book.level(Language::Russian, "ты"), Some("A1".into()));
+        assert_eq!(book.level(Language::Russian, "Ты"), Some("A1".into()));
+        assert_eq!(book.level(Language::Russian, "девочка"), Some("A1".into()));
+
+        // 2. 清洗重音符 \u{0301}
+        assert_eq!(
+            book.level(Language::Russian, "ты\u{0301}"),
+            Some("A1".into())
+        );
+        assert_eq!(
+            book.level(Language::Russian, "де\u{0301}вочка"),
+            Some("A1".into())
+        );
+
+        // 3. 分词匹配短语与连字符词
+        assert_eq!(
+            book.level(Language::Russian, "девочка-прислуга"),
+            Some("A1".into())
+        );
+        assert_eq!(
+            book.level(Language::Russian, "де\u{0301}вочка-прислуга"),
+            Some("A1".into())
+        );
+
+        // 4. 无等级或未配置
+        assert_eq!(book.level(Language::Russian, "неизвестно"), None);
+        assert_eq!(book.level(Language::English, "ты"), None);
+    }
 }
+

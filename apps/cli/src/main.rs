@@ -20,11 +20,11 @@ use std::time::Instant;
 use clap::Parser;
 use qingjian_core::{EmojiTable, Engine, FuzzyRules, Language};
 use qingjian_dictionary::{AuxCodeLookup, AuxCodeTable, CodeTable, Dictionary, WordList};
-use qingjian_learning::FrequencyLearner;
+use qingjian_learning::{FrequencyLearner, VocabularyBook};
 use qingjian_lm::BigramModel;
 use qingjian_platform::{Config, Scheme};
 use qingjian_predict::CloudPredictor;
-use qingjian_translate::Glossary;
+use qingjian_translate::{Glossary, LevelTable};
 
 use crate::args::Args;
 use crate::error::CliError;
@@ -164,9 +164,18 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         english_ms = english_load.as_millis(),
         "加载完成"
     );
+    let mut vocabulary = VocabularyBook::default();
+    let levels_path = std::path::PathBuf::from(format!("assets/levels/levels-{}.tsv", language.code()));
+    if levels_path.is_file() {
+        if let Ok(table) = LevelTable::from_path(&levels_path) {
+            tracing::info!(path = %levels_path.display(), "等级表已加载");
+            vocabulary = vocabulary.with_levels(language, table);
+        }
+    }
     let mut engine = Engine::new(dictionary)
         .with_translator(Box::new(glossary))
-        .with_learner(Box::new(learner));
+        .with_learner(Box::new(learner))
+        .with_vocabulary_tracker(Box::new(vocabulary));
     if !args.extra_dict.is_empty() {
         let mut extras = Vec::new();
         for path in &args.extra_dict {

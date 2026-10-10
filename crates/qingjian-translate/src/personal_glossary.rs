@@ -170,6 +170,7 @@ mod tests {
                 text: text.to_owned(),
                 reading: reading.map(str::to_owned),
                 fresh: false,
+                level: None,
             }],
         )
     }

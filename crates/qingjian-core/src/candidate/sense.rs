@@ -17,6 +17,10 @@ pub struct Sense {
     /// 生词：这条译词用户在候选里还没见过几轮（`Engine::annotate` 按词汇记录填，释义表里恒为 false），壳可以标出来。
     #[serde(default)]
     pub fresh: bool,
+
+    /// 词的考级/大纲等级（如俄语 ТРКИ A1..C2，日语 N5..N1）。由 `Engine::annotate` 填入，释义表里恒为 None。
+    #[serde(default)]
+    pub level: Option<String>,
 }
 
 impl Sense {

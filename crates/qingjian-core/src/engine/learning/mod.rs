@@ -68,11 +68,12 @@ impl Engine {
         }
     }
 
-    /// 按词汇记录给译词标生词：看到的轮次不到 [`FRESH_UNTIL`] 的算。
+    /// 按词汇记录给译词标生词与考级等级：看到的轮次不到 [`FRESH_UNTIL`] 的算生词。
     pub(super) fn mark_fresh(&self, translation: &mut Translation) {
         let language = translation.language;
         for sense in translation.senses_mut() {
             sense.fresh = self.vocabulary.exposures(language, &sense.text) < FRESH_UNTIL;
+            sense.level = self.vocabulary.level(language, &sense.text);
         }
     }
 

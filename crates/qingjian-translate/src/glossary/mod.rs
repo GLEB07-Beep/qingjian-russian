@@ -260,6 +260,7 @@ impl Glossary {
                     text: text.to_owned(),
                     reading: (!reading.is_empty()).then(|| reading.to_owned()),
                     fresh: false,
+                    level: None,
                 })
             })
             .collect();
@@ -284,6 +285,7 @@ pub(crate) fn parse_sense(field: &str) -> Sense {
             text: rest.trim().to_owned(),
             reading,
             fresh: false,
+            level: None,
         };
     }
     Sense {
@@ -291,6 +293,7 @@ pub(crate) fn parse_sense(field: &str) -> Sense {
         text: field.to_owned(),
         reading,
         fresh: false,
+        level: None,
     }
 }
 

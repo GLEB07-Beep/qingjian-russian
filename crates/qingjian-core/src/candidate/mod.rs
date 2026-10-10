@@ -47,3 +47,44 @@ pub struct Candidate {
     #[serde(default)]
     pub aux_code: Option<String>,
 }
+
+/// 将等级字符串格式化为候选框显示的友好标签。
+pub fn format_level_badge(level: &str) -> &'static str {
+    match level {
+        "A1" => "A1 基础",
+        "A2" => "A2 初级",
+        "B1" => "B1 中级",
+        "B2" => "B2 强化",
+        "C1" => "C1 高级",
+        "C2" => "C2 精通",
+        "N5" => "N5 基础",
+        "N4" => "N4 初级",
+        "N3" => "N3 中级",
+        "N2" => "N2 强化",
+        "N1" => "N1 高级",
+        _ => "考级",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_level_badge_matches_all_levels() {
+        assert_eq!(format_level_badge("A1"), "A1 基础");
+        assert_eq!(format_level_badge("A2"), "A2 初级");
+        assert_eq!(format_level_badge("B1"), "B1 中级");
+        assert_eq!(format_level_badge("B2"), "B2 强化");
+        assert_eq!(format_level_badge("C1"), "C1 高级");
+        assert_eq!(format_level_badge("C2"), "C2 精通");
+        assert_eq!(format_level_badge("N5"), "N5 基础");
+        assert_eq!(format_level_badge("N4"), "N4 初级");
+        assert_eq!(format_level_badge("N3"), "N3 中级");
+        assert_eq!(format_level_badge("N2"), "N2 强化");
+        assert_eq!(format_level_badge("N1"), "N1 高级");
+        assert_eq!(format_level_badge("unknown"), "考级");
+    }
+}
+
+

@@ -25,6 +25,7 @@ impl Translator for Glosses {
                         text: text.into(),
                         reading: None,
                         fresh: false,
+                        level: None,
                     })
                     .collect(),
             )

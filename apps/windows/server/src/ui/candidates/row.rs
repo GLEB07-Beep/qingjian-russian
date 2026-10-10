@@ -35,6 +35,12 @@ pub(crate) fn from_candidate(position: usize, candidate: &Candidate, show_code: 
                     annotation.push((format!("({reading})"), Tone::Faint));
                 }
             }
+            if let Some(level) = &sense.level {
+                annotation.push((
+                    format!("  [{}]", qingjian_core::format_level_badge(level)),
+                    Tone::Fresh,
+                ));
+            }
         }
     }
     Row {
@@ -45,3 +51,65 @@ pub(crate) fn from_candidate(position: usize, candidate: &Candidate, show_code: 
         cloud: candidate.kind == CandidateKind::Cloud,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use qingjian_core::{PartOfSpeech, Sense, Translation};
+
+    #[test]
+    fn row_renders_level_badge_when_present() {
+        let candidate = Candidate {
+            text: "你".into(),
+            kind: CandidateKind::Chinese,
+            syllables: vec!["ni".into()],
+            reading: None,
+            translation: Some(Translation::new(
+                qingjian_core::Language::Russian,
+                vec![Sense {
+                    part_of_speech: Some(PartOfSpeech::Pronoun),
+                    text: "ты".into(),
+                    reading: None,
+                    fresh: true,
+                    level: Some("A1".into()),
+                }],
+            )),
+            aux_code: None,
+        };
+        let row = from_candidate(0, &candidate, false);
+        assert_eq!(row.index, "1");
+        assert_eq!(row.text, "你");
+        assert_eq!(
+            row.annotation,
+            vec![
+                ("pron. ".to_string(), Tone::Faint),
+                ("ты".to_string(), Tone::Fresh),
+                ("  [A1 基础]".to_string(), Tone::Fresh),
+            ]
+        );
+    }
+
+    #[test]
+    fn row_does_not_render_level_badge_when_absent() {
+        let candidate = Candidate {
+            text: "你好".into(),
+            kind: CandidateKind::Chinese,
+            syllables: vec!["ni".into(), "hao".into()],
+            reading: None,
+            translation: Some(Translation::new(
+                qingjian_core::Language::Russian,
+                vec![Sense {
+                    part_of_speech: None,
+                    text: "привет".into(),
+                    reading: None,
+                    fresh: false,
+                    level: None,
+                }],
+            )),
+            aux_code: None,
+        };
+        let row = from_candidate(0, &candidate, false);
+        assert_eq!(row.annotation, vec![("привет".to_string(), Tone::Gloss)]);
+    }
+}
+

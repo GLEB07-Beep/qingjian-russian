@@ -210,9 +210,13 @@ fn format_candidate(candidate: &Candidate, width: usize) -> String {
                             None => segment.text.clone(),
                         })
                         .collect();
+                    let level_badge = match &s.level {
+                        Some(lvl) => format!("  [{}]", qingjian_core::format_level_badge(lvl)),
+                        None => String::new(),
+                    };
                     match s.part_of_speech {
-                        Some(pos) => format!("{pos} {text}"),
-                        None => text,
+                        Some(pos) => format!("{pos} {text}{level_badge}"),
+                        None => format!("{text}{level_badge}"),
                     }
                 })
                 .collect::<Vec<_>>()

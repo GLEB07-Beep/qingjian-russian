@@ -57,6 +57,12 @@ impl Row {
                         annotation.push((format!("({reading})"), Tone::Faint));
                     }
                 }
+                if let Some(level) = &sense.level {
+                    annotation.push((
+                        format!("  [{}]", qingjian_core::format_level_badge(level)),
+                        Tone::Fresh,
+                    ));
+                }
             }
         }
         Self {

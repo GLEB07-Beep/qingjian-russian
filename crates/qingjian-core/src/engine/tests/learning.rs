@@ -194,6 +194,7 @@ fn missing_glosses_are_requested_on_commit_and_learned_when_they_arrive() {
             text: "open".into(),
             reading: None,
             fresh: false,
+            level: None,
         }],
     );
     ready.lock().unwrap().push(FilledGloss {
@@ -494,6 +495,7 @@ fn committing_the_translation_learns_the_word_and_returns_the_gloss() {
                         text: "開発する".into(),
                         reading: Some("かいはつする".into()),
                         fresh: false,
+                        level: None,
                     }],
                 )
             })
@@ -722,3 +724,112 @@ fn input_log_records_the_session_and_page_turns() {
     };
     assert_eq!(commit.pages, 2);
 }
+
+#[test]
+fn annotate_populates_level_badge_from_vocabulary_tracker() {
+    struct RussianTranslator;
+    impl Translator for RussianTranslator {
+        fn language(&self) -> Language {
+            Language::Russian
+        }
+        fn translate(&self, text: &str) -> Option<Translation> {
+            match text {
+                "你" => Some(Translation::new(
+                    Language::Russian,
+                    vec![Sense {
+                        part_of_speech: Some(PartOfSpeech::Pronoun),
+                        text: "ты".into(),
+                        reading: None,
+                        fresh: false,
+                        level: None,
+                    }],
+                )),
+                "女孩" => Some(Translation::new(
+                    Language::Russian,
+                    vec![Sense {
+                        part_of_speech: Some(PartOfSpeech::Noun),
+                        text: "девочка".into(),
+                        reading: None,
+                        fresh: false,
+                        level: None,
+                    }],
+                )),
+                "未知" => Some(Translation::new(
+                    Language::Russian,
+                    vec![Sense {
+                        part_of_speech: None,
+                        text: "неизвестно".into(),
+                        reading: None,
+                        fresh: false,
+                        level: None,
+                    }],
+                )),
+                _ => None,
+            }
+        }
+    }
+
+    struct LevelTracker;
+    impl VocabularyTracker for LevelTracker {
+        fn exposures(&self, _language: Language, _word: &str) -> u32 {
+            0
+        }
+        fn record_exposure(&mut self, _language: Language, _word: &str) {}
+        fn record_commit(&mut self, _language: Language, _word: &str, _used: bool) {}
+        fn level(&self, language: Language, word: &str) -> Option<String> {
+            if language == Language::Russian && (word == "ты" || word == "девочка") {
+                Some("A1".into())
+            } else {
+                None
+            }
+        }
+    }
+
+    let mut engine = engine()
+        .with_translator(Box::new(RussianTranslator))
+        .with_vocabulary_tracker(Box::new(LevelTracker));
+
+    let mut list = CandidateList {
+        items: vec![
+            Candidate {
+                text: "你".into(),
+                kind: CandidateKind::Chinese,
+                syllables: vec!["ni".into()],
+                reading: None,
+                translation: None,
+                aux_code: None,
+            },
+            Candidate {
+                text: "女孩".into(),
+                kind: CandidateKind::Chinese,
+                syllables: vec!["nü".into(), "hai".into()],
+                reading: None,
+                translation: None,
+                aux_code: None,
+            },
+            Candidate {
+                text: "未知".into(),
+                kind: CandidateKind::Chinese,
+                syllables: vec!["wei".into(), "zhi".into()],
+                reading: None,
+                translation: None,
+                aux_code: None,
+            },
+        ],
+    };
+
+    engine.annotate(&mut list);
+
+    let s_ni = &list.items[0].translation.as_ref().unwrap().senses()[0];
+    assert_eq!(s_ni.text, "ты");
+    assert_eq!(s_ni.level.as_deref(), Some("A1"));
+
+    let s_girl = &list.items[1].translation.as_ref().unwrap().senses()[0];
+    assert_eq!(s_girl.text, "девочка");
+    assert_eq!(s_girl.level.as_deref(), Some("A1"));
+
+    let s_unk = &list.items[2].translation.as_ref().unwrap().senses()[0];
+    assert_eq!(s_unk.text, "неизвестно");
+    assert_eq!(s_unk.level, None);
+}
+

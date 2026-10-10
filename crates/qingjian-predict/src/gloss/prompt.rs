@@ -126,6 +126,7 @@ pub fn parse_reply(content: &str, language: Language, words: &[String]) -> Vec<F
                 text,
                 reading,
                 fresh: false,
+                level: None,
             });
             if senses.len() == MAX_SENSES {
                 break;

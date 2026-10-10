@@ -45,6 +45,7 @@ mod tests {
                 text: text.to_owned(),
                 reading: None,
                 fresh: false,
+                level: None,
             })
             .collect();
         let translation = Translation::new(Language::English, senses);
