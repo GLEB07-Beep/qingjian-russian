@@ -125,7 +125,7 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     echo "打包含章·通变：$p2c_dir/hanzhang-tongbian-small.qjm"
   fi
   # 释义表打成 .qj（TSV 比 .qj 新时重打），英文词表仍是 TSV。各表来源不同，元数据按表写（见 assets/glossary/README.md）
-  for lang in en ja zh es ru; do
+  for lang in en ja zh es ru vi de; do
     src="assets/glossary/glossary-$lang.tsv"
     out="data/generated/glossary-$lang.qj"
     [[ -f "$src" ]] || continue
@@ -135,6 +135,12 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     elif [[ "$lang" == ru ]]; then
       license="MIT"
       attribution="青简俄语专版（Qingjian-RU，GLEB07-Beep）"
+    elif [[ "$lang" == vi ]]; then
+      license="GPL-3.0-or-later"
+      attribution="LLM 生成（gpt-5.5），qingjian-gloss-gen"
+    elif [[ "$lang" == de ]]; then
+      license="GPL-3.0-or-later"
+      attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"
     else
       license="MIT"
       attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"
@@ -217,10 +223,14 @@ if [[ "${1:-}" == "--install" ]]; then
     echo "注意: /Library/Input Methods/$APP_NAME.app 也装着一份（pkg 装的），两份同 id 会互相顶；先跑 scripts/uninstall.sh"
   fi
   mkdir -p "$INSTALL_DIR"
-  rm -rf "$INSTALL_DIR/$APP_NAME.app"
-  cp -R "$APP" "$INSTALL_DIR/$APP_NAME.app"
+  # 先整个拷到旁边再换上去：直接删了再拷，拷到一半中断会留下残缺的包，旧进程还在用它
+  STAGING="$INSTALL_DIR/.$APP_NAME.app.new"
+  rm -rf "$STAGING"
+  cp -R "$APP" "$STAGING"
   # 系统会在下次切换到该输入法时重新拉起进程
   pkill -x "$BIN_NAME" 2>/dev/null || true
+  rm -rf "$INSTALL_DIR/$APP_NAME.app"
+  mv "$STAGING" "$INSTALL_DIR/$APP_NAME.app"
   echo "已安装到: $INSTALL_DIR/$APP_NAME.app"
   echo "日志: ~/Library/Logs/Qingjian/"
 fi

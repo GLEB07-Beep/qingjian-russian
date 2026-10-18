@@ -19,10 +19,10 @@ pub(crate) fn from_candidate(position: usize, candidate: &Candidate, show_code: 
     if let Some(translation) = &candidate.translation {
         for (i, sense) in translation.senses().iter().enumerate() {
             if i > 0 || !annotation.is_empty() {
-                annotation.push((" · ".to_owned(), Tone::Faint));
+                annotation.push((" · ".to_owned(), Tone::Separator));
             }
             if let Some(pos) = sense.part_of_speech {
-                annotation.push((format!("{pos} "), Tone::Faint));
+                annotation.push((format!("{pos} "), Tone::Pos));
             }
             let tone = if sense.fresh {
                 Tone::Fresh
@@ -82,7 +82,7 @@ mod tests {
         assert_eq!(
             row.annotation,
             vec![
-                ("pron. ".to_string(), Tone::Faint),
+                ("pron. ".to_string(), Tone::Pos),
                 ("ты".to_string(), Tone::Fresh),
                 ("  [A1 基础]".to_string(), Tone::Fresh),
             ]
