@@ -225,7 +225,7 @@ fn is_russian_char(c: char) -> bool {
 }
 
 /// 全是假名（含长音、中点）。
-fn is_kana(text: &str) -> bool {
+pub(super) fn is_kana(text: &str) -> bool {
     !text.is_empty()
         && text
             .chars()

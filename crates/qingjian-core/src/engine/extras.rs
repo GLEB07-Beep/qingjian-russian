@@ -1,8 +1,8 @@
 //! 附加候选：日期时间等快捷项、中英混输的英文词与补全、emoji 与颜文字、符号。
 
 use super::{
-    EMOJI_PER_WORD, EMOJI_SCAN, ENGLISH_COMPLETIONS, Engine, KAOMOJI_PER_WORD, Learner,
-    MIN_COMPLETION_LETTERS,
+    EMOJI_PER_WORD, EMOJI_SCAN, ENGLISH_COMPLETIONS, Engine, KAOMOJI_PER_WORD, KEYWORD_SCAN,
+    Learner, MIN_COMPLETION_LETTERS,
 };
 use crate::candidate::{Candidate, CandidateKind};
 use crate::emoji::EmojiTable;
@@ -76,6 +76,34 @@ impl Engine {
         items.splice(position..position, shortcuts);
     }
 
+    /// 全拼打出了「日期 / 时间 / 星期」（排在前 [`KEYWORD_SCAN`] 个词里，配的 emoji 这些不算）：对应的快捷写法
+    /// 紧跟在这个词后面、排在它的 emoji 之前，所以要在配 emoji 之后调。
+    /// 已经有快捷候选（`rq` 出的）就不再加，免得同一组写法出两遍。
+    pub(super) fn insert_keyword_shortcuts(&self, items: &mut Vec<Candidate>) {
+        if items.iter().any(|c| c.kind == CandidateKind::Shortcut) {
+            return;
+        }
+        let now = jiff::Zoned::now();
+        let found = items
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| {
+                !matches!(
+                    c.kind,
+                    CandidateKind::Emoji | CandidateKind::Kaomoji | CandidateKind::Symbol
+                )
+            })
+            .take(KEYWORD_SCAN)
+            .find_map(|(i, c)| {
+                let forms = shortcut::keyword_forms(&c.text, &now);
+                (!forms.is_empty()).then_some((i, forms))
+            });
+        if let Some((index, forms)) = found {
+            let position = index + 1;
+            items.splice(position..position, shortcut::as_candidates(forms));
+        }
+    }
+
     /// 中英混输：整段输入是英文词就把它加进候选。
     /// 缺省作为拼音「不像话」（切不动、或除末尾外还有声母缩写 / 残缺音节）时排第一，否则排第二；
     /// 开了中文优先（`chinese_first`）整句 / 首个中文候选已经在前，英文词排第二。没有中文候选时总在第一。
@@ -105,6 +133,8 @@ impl Engine {
         let word = lists.iter().find_map(|words| words.get(text));
         // 这段字母下用户选中文词（`key` → 可以）比选英文词的次数多：中文词留在第一，英文让到后面；
         // 拼音再不像话也是他自己教的
+        // 仲裁只看字面键：`wenti` 下选的 问题 不能隔着 `went` 把英文词顶下去，
+        // 打的正是这个英文时它得留在第一——同一段字母上选过中文的照旧算。
         let chosen = items
             .first()
             .filter(|c| c.kind == CandidateKind::Chinese)

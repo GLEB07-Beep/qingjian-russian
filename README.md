@@ -1,3 +1,5 @@
+<p align="center"><b>简体中文</b> | <a href="docs/i18n/README.zh-Hant.md">繁體中文</a> | <a href="docs/i18n/README.en.md">English</a> | <a href="docs/i18n/README.ja.md">日本語</a> | <a href="docs/i18n/README.es.md">Español</a> | <a href="docs/i18n/README.vi.md">Tiếng Việt</a> | <a href="docs/i18n/README.de.md">Deutsch</a></p>
+
 <p align="center">
   <img src="assets/icon/qingjian-mark.svg" alt="青简图标" height="108">
 </p>
@@ -11,7 +13,9 @@
   <img src="https://img.shields.io/badge/Language-Russian%20%7C%20%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-red?style=flat" alt="Russian">
   <img src="https://img.shields.io/badge/%D0%A2%D0%A0%D0%9A%D0%98%20(TORFL)-A1%E2%80%93C2-blue?style=flat" alt="TORFL Levels">
   <img src="https://img.shields.io/badge/Glossary-54%2C918%20Words-success?style=flat" alt="54k Words">
+  <img src="https://img.shields.io/badge/macOS-13%2B-blue?logo=apple&amp;logoColor=white" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Windows-10%2F11%20x64-blue?style=flat" alt="Windows 10/11">
+  <img src="https://img.shields.io/badge/Linux-Fcitx4%20%2F%205%20manual-lightgrey?logo=linux&amp;logoColor=white" alt="Linux Fcitx4 和 Fcitx5，手动启动">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--or--later-blue" alt="License: GPL-3.0-or-later"></a>
 </p>
 
@@ -19,7 +23,16 @@
 
 ## 🌟 项目简介
 
-**青简·俄语专版（Qingjian-RU）** 是一款专为**俄语学习者、翻译人员及中俄双语工作者**打造的开源原生 Windows 输入法。
+**青简·俄语专版（Qingjian-RU）** 是一款专为**俄语学习者、翻译人员及中俄双语工作者**打造的开源原生输入法（Windows / macOS）。
+
+## 下载与开始使用
+
+- **Windows、macOS**：从 [Releases 页面](../../releases) 下载俄语专版安装包；安装步骤见下文「极速下载与安装体验」。
+- **Linux**：沿用上游的 Fcitx5 / Fcitx4 源码安装，使用系统默认候选面板；目前需要手动启动后台服务，详见 [Linux 安装说明](https://qingjian.app/docs/platforms/linux)。
+
+安装后先选中青简，在「偏好设置 / 设置 → 通用」里学习语言**默认已是俄语**，可以直接开始输入。第一次使用可从[第一次输入](https://qingjian.app/docs/getting-started/first-input)读起。
+
+## 输入时，你会看到什么
 
 在日常打字输入拼音时，输入法候选词侧边**实时呈现西里尔字母俄语翻译、规范词性标注（动词不定式原形、名词单数第一格、阳性形容词等）以及 ТРКИ (TORFL) 俄语考级难度标签**。让背单词与语法巩固自然融入到微信聊天、写文档、写代码的每一次敲击中。
 
@@ -36,7 +49,7 @@
  1. 你好     int. привет · int. здравствуйте
 ```
 
----
+候选旁一次只显示一种学习语言的译词。俄语专版默认选俄语，也保留上游的英语、日语、西班牙语、越南语、德语选项，或直接关闭译词显示。青简还支持整句输入、简拼、拼写纠错、双拼、五笔等输入方式；本地整句模型会在停顿后调整句子候选。
 
 ## ✨ 核心特性
 
@@ -47,10 +60,12 @@
   - 挂载全套 ТРКИ 俄语词汇考级数据库（A1 初级到 C2 母语级）。打字时自动标记词汇等级，量化词汇量。
 - ⚡ **9.2 万全量基础拼音词库 + 整句预测**：
   - 内置完整 9.2 万基础词库与 Viterbi 解码算法，全拼、简拼（如 `wjszd` -> 我就是知道）、长句连打行云流水。
-- 🪟 **原生 Windows Text Services Framework (TSF) 架构**：
-  - 基于微软官方 TSF 规范深度开发，UI 采用现代 WinUI 3 原生渲染，毫秒级响应，告别卡顿与选框漂移。
+- 🪟 **原生 Windows Text Services Framework (TSF) 架构 / 原生 macOS 输入法**：
+  - Windows 侧基于微软官方 TSF 规范深度开发，毫秒级响应，告别卡顿与选框漂移；macOS 侧以 InputMethodKit 接入。
 - 🛡️ **绝对离线与隐私安全**：
   - 拼音转换与词典检索 100% 在本机本地完成；零弹窗、零广告、无后台网络上传，纯粹干净。
+
+可选的**云联想默认关闭**。开启后，青简会把当前输入和附近的文字直接发送给你自行填写的 AI 服务商，以获取候选或整句补全；请求不经过青简的服务器。发送范围与本机保存的数据，见[数据与日志](https://qingjian.app/docs/help/privacy)。
 
 ---
 
@@ -58,7 +73,7 @@
 
 ### 方式一：下载开箱即用便携绿色包（推荐）
 
-1. 从 [Releases 页面](../../releases) 下载最新版的 **`Qingjian-RU-v0.1.5-windows-x64.zip`**；
+1. 从 [Releases 页面](../../releases) 下载最新版的 **`Qingjian-RU-v0.2.2-windows-x64.zip`**；
 2. 解压压缩包到任意本地文件夹（例如 `D:\Software\Qingjian-RU`）；
 3. 鼠标右键以**管理员身份运行**里面的 **`install.bat`**：
    - 脚本将自动完成 TSF 注册与服务启动；
@@ -74,8 +89,8 @@
 
 ```powershell
 # 1. 克隆代码仓库
-git clone -b ru-dev https://github.com/GLEB07-Beep/qingjian-ru.git
-cd qingjian-ru
+git clone -b ru-dev https://github.com/GLEB07-Beep/qingjian-russian.git
+cd qingjian-russian
 
 # 2. 编译 Release 组件
 $env:QINGJIAN_UIACCESS = "0"
@@ -92,7 +107,7 @@ target\release\qingjian-cli.exe --language ru kaifa
 
 运行 `qingjian-settings.exe`，可在可视化面板中进行如下个性化定制：
 
-- **学习语言切换**：随时在 俄语 (ru) / 英语 (en) / 日语 (ja) / 西班牙语 (es) 或“不显示译文”间切换；
+- **学习语言切换**：默认 俄语 (ru)，也可选 英语 (en) / 日语 (ja) / 西班牙语 (es) / 越南语 (vi) / 德语 (de) 或“不显示译文”；
 - **候选词数量**：支持每页 5 ~ 9 个候选词；
 - **中英文一键切换**：打字过程中单击键盘 `Shift` 键即可一键切换中英文输入模式。
 
@@ -102,7 +117,9 @@ target\release\qingjian-cli.exe --language ru kaifa
 
 - `crates/qingjian-core`: 拼音切分、输入方案与多语言引擎核心
 - `crates/qingjian-translate`: 释义表加载、ТРКИ 考级等级解析器与多层翻译器
-- `apps/windows/`: Windows TSF 动态库、后台守护进程与 WinUI 设置面板
+- `crates/bamboo-slip`: 新版自渲染设置程序与候选窗共用的控件/渲染库
+- `apps/windows/`: Windows TSF 动态库、后台守护进程与设置面板
+- `apps/macos/`: macOS 输入法与偏好设置
 - `assets/glossary/glossary-ru.tsv`: 俄语西里尔释义数据库（严格 UTF-8 无 BOM、LF 换行、Unicode 升序排序）
 - `assets/levels/levels-ru.tsv`: ТРКИ (TORFL A1–C2) 俄语考级等级表
 
@@ -113,5 +130,5 @@ target\release\qingjian-cli.exe --language ru kaifa
 ## 📄 许可证与致谢
 
 - 本项目基于上游优秀开源项目 [qingjian-team/qingjian](https://github.com/qingjian-team/qingjian) 进行深度扩展与俄语专版定制；
-- 代码部分采用 [GPL-3.0-or-later](LICENSE) 协议开源；
-- 俄语词库数据遵循 [MIT](LICENSE) / 开源词典衍生授权协议。
+- 代码部分采用 [GPL-3.0-or-later](LICENSE) 协议开源；项目名称与 logo 不包含在代码授权中；
+- 俄语词库数据遵循 [MIT](LICENSE) / 开源词典衍生授权协议；随包数据有各自的来源与许可，见[数据来源清单](docs/design/landscape.md)。

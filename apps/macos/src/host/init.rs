@@ -66,7 +66,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             }
         }
         engine = engine
-            .with_usage_meter(Box::new(UsageStats::open(dir.join(USAGE_FILE))))
+            .with_usage_meter(Box::new(UsageStats::open(&dir)))
+            .with_panel_history(Box::new(PanelUsage::open(&dir)))
             .with_vocabulary_tracker(Box::new(vocabulary));
     }
     // 附加词库：随包的领域词库 + 用户目录 dicts/ 下的文件
@@ -136,6 +137,11 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             last_flush: std::time::Instant::now(),
             applied_predict: PredictConfig::default(),
             applied_dictionaries: DictionariesConfig::default(),
+            applied_aux_code: None,
+            aux_files: Vec::new(),
+            code_word_files: Vec::new(),
+            dictionary_files: Vec::new(),
+            aux_code_show: false,
             dictionary_list: Vec::new(),
             learning_language,
             languages,
@@ -144,17 +150,27 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             page_size: 9,
             cloud_slots: 2,
             page_keys: qingjian_platform::DEFAULT_PAGE_KEYS,
+            extra_page_keys: PageKeys::default(),
             punct_commits: false,
+            scheme_slot: Default::default(),
             translation_keys: ShortcutConfig::default().translation_keys(),
             delete_keys: ShortcutConfig::default().delete_keys(),
             status: None,
             input_log_enabled: None,
             translate_keys: KeyCombo::TRANSLATE_DEFAULT,
+            punctuation_keys: None,
+            predict_keys: KeyCombo::PREDICT_DEFAULT,
+            manual_prediction: None,
             translation: None,
             notice: None,
+            key_hint_mode: KeyHintMode::default(),
+            key_hint: KeyHintState::default(),
+            root_keyboard: None,
             preedit_mode: PreeditMode::default(),
+            translation_pos: true,
             layout: LayoutMode::default(),
             horizontal_grid: false,
+            highlight_keys: HighlightKeys::default(),
             english_candidates: true,
             text_replacements: Vec::new(),
             apps: AppsConfig::default(),

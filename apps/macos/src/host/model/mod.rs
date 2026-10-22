@@ -170,10 +170,17 @@ impl Host {
         self.engine.annotate(&mut query.candidates);
         let preedit = Preedit::from_marked(&query.marked_segments(), query.segments_cursor());
         let cloud = self.session.layout.cloud().to_vec();
-        self.reset_session(preedit, query.candidates.items);
+        let candidates = std::mem::take(&mut query.candidates.items);
+        self.reset_session(preedit, candidates);
+        self.session.spelling = Some(query);
+        // 高亮回到首选，切法不变，应用里的 marked text 不用动；只换窗口拼音行（带调拼音）
+        self.follow_highlight();
         if !cloud.is_empty() {
             self.session.layout.set_cloud(cloud);
         }
         self.render();
+        // 结果到的时候用户可能又敲了键、新的防抖还没到点，上面的 stop() 把它一起清了；
+        // 这次查询要是又记下了要打分 / 生成的，再起一轮，否则最后这段按键永远不请求（Linux 的 requery_rescored 同理）
+        self.schedule_rescoring();
     }
 }

@@ -22,7 +22,9 @@
    标题下可以写一行 `网盘：[夸克网盘](链接)`（GitHub 下载不方便的用户用）：它不算更新条目，Release 说明把它放在最前面，`releases.json` 单独输出成 `mirrors`，官网显示成按钮。
    网盘文件在 CI 跑完后手动上传。
 3. 提交，打注释标签并推：`git tag -a v0.1.4 -m "青简 0.1.4" && git push origin main v0.1.4`。
-4. 标签推出去之后紧接一个普通提交把版本号改成下一个开发版（`0.1.5-dev`），CHANGELOG 顶上加 `## 0.1.5 · 未发布 · stable`；-dev 版本永远没有标签与 Release。
+4. 标签推出去之后，给历代配置回归测试补一份这一版的模板：`python3 crates/qingjian-platform/tests/config_history/extract.py v<版本> v<版本>`，
+   新文件随下一个提交进库（`tests/config_history.rs` 要求以后的版本都读得进它）。
+5. 紧接一个普通提交把版本号改成下一个开发版（`0.1.5-dev`），CHANGELOG 顶上加 `## 0.1.5 · 未发布 · stable`；-dev 版本永远没有标签与 Release。
 
 `release.yml` 的流程：
 
@@ -51,7 +53,7 @@ Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），两个 wo
   代价是候选窗在任务栏搜索 / 设置这类 UWP 宿主里可能被盖住，用户文档与 CHANGELOG 已列为已知问题。
   Certum 开源证书办下来后：在 `build.ps1` 加 signtool 一步（`sign-local.ps1` 是本机自签的参考），workflow 去掉那个环境变量；SmartScreen 对无签名安装包的拦截也一并消失。
   Inno Setup 钉 7.1.0（与开发机同版本、钉死 GitHub Release 上的安装程序与哈希）。
-- **Linux**：`apps/linux/scripts/package.sh` 打的包里是编好的 Server 与 Fcitx5 插件、产品数据压缩包、`install.sh` / `uninstall.sh` / `files.py`，按仓库相对路径放，
+- **Linux**：`apps/linux/scripts/package.sh` 打的包里是编好的 Server、设置程序与 Fcitx5 插件、产品数据压缩包、`install.sh` / `uninstall.sh` / `files.py`，按仓库相对路径放，
   安装与源码安装走同一份清单与校验；打完先装进临时目录冒烟测试（文件齐、校验过、`ldd` 无缺库）再上传。
   插件链接构建机的 Fcitx5（`build-info.json` 的 `platforms.linux.runner` 记了版本），所以只承诺 Ubuntu 26.04，其他发行版走源码安装。
 - **官网**：安装包按文件名识别平台（`ASSET_KINDS`），下载页按访问者平台取「有该平台安装包的最新版本」（`latestFor`）；0.1.3 及更早按平台分开的 Release 照样识别，同版本号合在一条里。

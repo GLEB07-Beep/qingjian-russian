@@ -42,6 +42,22 @@ impl Language {
     }
 }
 
+/// 学习语言写这个值表示不显示译文（配置 `[general] learning_language`）。
+pub const LEARNING_LANGUAGE_OFF: &str = "off";
+
+/// 设置里列的学习语言：配置写法与界面名，按这个顺序列出；最后一项是不显示译文。
+///
+/// 青简·俄语专版：俄语置于首位，是俄语专版的默认学习语言。
+pub const LEARNING_LANGUAGES: [(&str, &str); 7] = [
+    ("ru", "俄语"),
+    ("en", "英语"),
+    ("ja", "日语"),
+    ("es", "西班牙语"),
+    ("vi", "越南语"),
+    ("de", "德语"),
+    (LEARNING_LANGUAGE_OFF, "不显示"),
+];
+
 #[derive(Debug, thiserror::Error)]
 #[error("unknown language code: {0}")]
 pub struct UnknownLanguage(pub String);
@@ -118,5 +134,14 @@ mod tests {
             "русский".parse::<pre_language::Language>().unwrap_err().0,
             "русский"
         );
+    }
+
+    #[test]
+    fn learning_languages_parse_except_off() {
+        let (off, rest) = LEARNING_LANGUAGES.split_last().unwrap();
+        assert_eq!(off.0, LEARNING_LANGUAGE_OFF);
+        for (code, _) in rest {
+            assert_eq!(code.parse::<Language>().unwrap().code(), *code);
+        }
     }
 }
