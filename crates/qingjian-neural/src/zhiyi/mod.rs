@@ -16,6 +16,7 @@ mod weights;
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use serde::Deserialize;
 use tokenizers::Tokenizer;
@@ -30,6 +31,10 @@ use input::Sequence;
 struct UnifiedVocab {
     units: Vec<String>,
     letters: String,
+
+    /// composition 头的字表（`char_logits` 的列）；旧模型包没有。
+    #[serde(default)]
+    chars: Vec<String>,
 }
 
 /// 加载好的选词模型。
@@ -40,6 +45,9 @@ pub struct ChoiceScorer {
     units: HashMap<String, u32>,
     /// 英文字母表，单元号是 `units.len()` + 下标。
     letters: Vec<char>,
+
+    /// composition 头的字 → 列号。
+    chars: Arc<HashMap<char, u32>>,
 }
 
 impl ChoiceScorer {
@@ -69,6 +77,14 @@ impl ChoiceScorer {
                 .map(|(i, name)| (name.clone(), i as u32))
                 .collect(),
             letters: vocab.letters.chars().collect(),
+            chars: Arc::new(
+                vocab
+                    .chars
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, text)| Some((text.chars().next()?, i as u32)))
+                    .collect(),
+            ),
         })
     }
 
@@ -98,12 +114,55 @@ impl ChoiceScorer {
         })
     }
 
+    /// composition 头的字表：字 → [`Self::compose`] 每行里的列号。
+    pub fn char_index(&self) -> Arc<HashMap<char, u32>> {
+        Arc::clone(&self.chars)
+    }
+
+    /// 按音节出字：每个音节一行、各字的 log 概率（对整张字表做 log softmax，列号见 [`Self::char_index`]）。
+    /// 模型没有 composition 头、有音节对不上输入单元时返回 `Ok(None)`。
+    pub fn compose(
+        &self,
+        context: &str,
+        syllables: &[(&str, bool)],
+    ) -> Result<Option<Vec<Vec<f32>>>, NeuralError> {
+        if self.chars.is_empty() || syllables.is_empty() {
+            return Ok(None);
+        }
+        let mut typed = Vec::with_capacity(syllables.len());
+        for (text, complete) in syllables {
+            let name = format!("{}:{text}", if *complete { 'f' } else { 'p' });
+            let Some(&unit) = self.units.get(&name) else {
+                return Ok(None);
+            };
+            typed.push(unit);
+        }
+        // 选词头要至少一个候选标记，给一个空候选占位；composition 头只看拼音槽位
+        let sequence = self.sequence(context, &typed, &[""])?;
+        let Some(rows) = self.forward.char_logits(&sequence)? else {
+            return Ok(None);
+        };
+        if rows.len() != syllables.len() {
+            return Ok(None);
+        }
+        Ok(Some(
+            rows.into_iter().map(|row| log_softmax(&row)).collect(),
+        ))
+    }
+
     fn encode(&self, text: &str) -> Result<Vec<u32>, NeuralError> {
         self.tokenizer
             .encode(text, false)
             .map(|encoding| encoding.get_ids().to_vec())
             .map_err(|_| NeuralError::Corrupt("tokenizer failed"))
     }
+}
+
+fn log_softmax(logits: &[f32]) -> Vec<f32> {
+    let max = logits.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let sum: f32 = logits.iter().map(|&l| (l - max).exp()).sum();
+    let log_sum = sum.ln();
+    logits.iter().map(|&l| l - max - log_sum).collect()
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, NeuralError> {

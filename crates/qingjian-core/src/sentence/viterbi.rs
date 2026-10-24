@@ -118,6 +118,7 @@ pub fn convert_with(
         weight,
         cost,
         &[],
+        &|_, _, _| 0.0,
         cache,
     )
     .into_iter()
@@ -126,6 +127,7 @@ pub fn convert_with(
 
 /// 得分最高的前 `k` 条路径（最多束宽条，按得分降序，文本相同的只留一条）：给重打分用。
 /// `tones` 是注音每个位置敲的声调（与 `positions` 对齐，可以更短；全拼 / 双拼给空），按 [`TONE_PENALTY`] 给格子选词打折、给路径扣分。
+/// `emission(起始位置, 词, 词的读音)` 是词上各字的额外得分（选词模型按音节出的字分布），没有就给恒 0。
 #[allow(clippy::too_many_arguments)]
 pub fn convert_paths(
     dictionaries: &[&Dictionary],
@@ -137,6 +139,7 @@ pub fn convert_paths(
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
     tones: &[Option<u8>],
+    emission: &dyn Fn(usize, &str, &[String]) -> f64,
     cache: &mut SpanCache,
 ) -> Vec<Conversion> {
     let Some((last, head)) = positions.split_last() else {
@@ -220,7 +223,8 @@ pub fn convert_paths(
                     start,
                     text: hit.text.clone(),
                     syllables: hit.syllables.clone(),
-                    score: score + bonus - hit.penalty - hit.tone - hit.reading,
+                    score: score + bonus - hit.penalty - hit.tone - hit.reading
+                        + emission(start, &hit.text, &hit.syllables),
                     static_score,
                     back,
                     placeholder: false,

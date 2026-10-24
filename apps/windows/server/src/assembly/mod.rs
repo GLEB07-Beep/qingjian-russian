@@ -4,11 +4,13 @@ mod language_model;
 mod spec;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Instant;
 
 use qingjian_core::{EmojiTable, Engine, Language};
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, PanelUsage, UsageStats, VocabularyBook};
+use qingjian_lm::{MixedModel, TRIGRAM_WEIGHT, TrigramModel};
 use qingjian_platform::code_tables::AuxCodeSources;
 use qingjian_platform::{Config, extra_dictionaries};
 use qingjian_translate::{Glossary, LayeredTranslator, LevelTable, PersonalGlossary};
@@ -17,6 +19,9 @@ use crate::error::ServerError;
 
 pub use self::language_model::LanguageModelFiles;
 pub use self::spec::AssemblySpec;
+
+/// 知意三元模型在用户目录里的位置（与 `models/zhiyi-onnx` 并列）。
+const ZHIYI_NGRAM: &str = "models/zhiyi-ngram/zh.ngram";
 
 pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
     let started = Instant::now();
@@ -80,6 +85,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
         tracing::info!(words = table.len(), "emoji 表已加载");
         engine = engine.with_emoji(table);
     }
+    let mut bigram = None;
     if let Some(files) = &spec.language_model {
         let started = Instant::now();
         let model = files.load()?;
@@ -89,9 +95,48 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
             load_ms = started.elapsed().as_millis(),
             "语言模型已加载"
         );
-        engine = engine.with_language_model(Box::new(model));
+        bigram = Some(model);
+    }
+    match (spec.user_dir.as_deref().and_then(load_trigram), bigram) {
+        (Some((phrase, lattice)), bigram) => {
+            engine.set_phrase_model(Some(Arc::new(phrase)));
+            engine = engine.with_language_model(match bigram {
+                Some(bigram) => Box::new(MixedModel::new(
+                    Box::new(lattice),
+                    Box::new(bigram),
+                    TRIGRAM_WEIGHT,
+                )),
+                None => Box::new(lattice),
+            });
+        }
+        (None, Some(bigram)) => engine = engine.with_language_model(Box::new(bigram)),
+        (None, None) => {}
     }
     Ok(engine)
+}
+
+/// 用户放进 `models/zhiyi-ngram/` 的知意三元模型：映射两份，一份给选词重排、一份进整句词图（同一文件，页面共用）。
+fn load_trigram(user_dir: &Path) -> Option<(TrigramModel, TrigramModel)> {
+    let path = user_dir.join(ZHIYI_NGRAM);
+    if !path.is_file() {
+        return None;
+    }
+    let started = Instant::now();
+    match TrigramModel::open(&path).and_then(|a| Ok((a, TrigramModel::open(&path)?))) {
+        Ok((phrase, lattice)) => {
+            tracing::info!(
+                unigrams = phrase.unigram_count(),
+                trigrams = phrase.trigram_count(),
+                load_ms = started.elapsed().as_millis(),
+                "三元模型已加载"
+            );
+            Some((phrase, lattice))
+        }
+        Err(error) => {
+            tracing::warn!(path = %path.display(), %error, "三元模型加载失败，整句只用二元模型");
+            None
+        }
+    }
 }
 
 /// 用户导入词库目录 `dicts/`，不存在则创建；建不了当没有。

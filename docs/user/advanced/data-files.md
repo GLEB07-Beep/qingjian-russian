@@ -57,12 +57,13 @@ description: 青简数据文件夹的位置、每个文件记的是什么、运�
 
 ## 换用自己的本地整句模型
 
-本地整句模型（含章·通变）随包附带。要换用自己训练的模型，把 `hanzhang-tongbian-small.qjm` 放进数据文件夹的 `models/hanzhang-tongbian/`，重启输入法后优先使用：
+本地整句模型（含章·通变）随 macOS 与 Linux 版附带，Windows 版不再随包。要换用自己训练的模型，把 `hanzhang-tongbian-small.qjm` 放进数据文件夹的 `models/hanzhang-tongbian/`，重启输入法后优先使用：
 
 - **macOS**：`~/Library/Application Support/Qingjian/models/hanzhang-tongbian/`
 - **Windows**：`%APPDATA%\Qingjian\models\hanzhang-tongbian\`
 - **Linux**：`~/.local/share/qingjian/models/hanzhang-tongbian/`
 
 - 含章·知微（`hanzhang-zhiwei-small.qjm`，放在 `models/hanzhang-zhiwei/`）不再随包，在「设置 → 实验功能」下载，或自己放进这个目录后在实验功能里打开（`[model] name = "zhiwei"`）；它会参考光标前的几十个字重排候选。知意下载后在 `models/zhiyi/`（Windows 是 `models/zhiyi-onnx/`）。
+- 知意输入法的词库模型（`zh.ngram`）目前不随包，只有 Windows 版会读：放进 `%APPDATA%\Qingjian\models\zhiyi-ngram\` 后重启输入法，整句和候选排序都会参考它。
 - 旧版用过的 `model-p2c/` 与 `model/` 文件夹仍可读取；同一模型的新文件夹优先。
 - 直接导出的 `model.safetensors`、`config.json`、`vocab.json` 三个文件也能识别；同一文件夹里两种都有时优先用 `.qjm`。

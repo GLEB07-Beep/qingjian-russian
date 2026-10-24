@@ -168,11 +168,7 @@ fn evaluate(
         }
     };
     // 异步重打分：像壳一样停顿后请求、等结果、再查一次；等的时间也算进查询耗时
-    let mut query = if crate::rescoring::settle(engine) {
-        engine.query().unwrap_or(query)
-    } else {
-        query
-    };
+    let mut query = crate::rescoring::settled(engine, query);
     if let Some(reranker) = reranker {
         reranker.set_context(&pair.context);
         reranker.rerank(engine, &mut query, &pair.pinyin);

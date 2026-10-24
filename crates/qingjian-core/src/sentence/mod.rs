@@ -18,6 +18,7 @@ mod conversion;
 mod interpolation;
 mod language_model;
 mod personal;
+mod phrase_model;
 mod pieces;
 mod scorer;
 mod sentence_word;
@@ -31,6 +32,7 @@ pub use conversion::Conversion;
 pub use interpolation::Interpolation;
 pub use language_model::{LanguageModel, NoLanguageModel};
 pub use personal::Personal;
+pub use phrase_model::PhraseModel;
 pub use pieces::text_pieces;
 pub use scorer::SentenceScorer;
 pub use sentence_word::SentenceWord;
@@ -110,6 +112,8 @@ pub fn transition_log_prob(
     word: &str,
     fallback: f64,
 ) -> f64 {
-    let base = model.log_prob(context.previous, word).unwrap_or(fallback);
+    let base = model
+        .log_prob_trigram(context.earlier, context.previous, word)
+        .unwrap_or(fallback);
     personal.blend(context, word, base)
 }

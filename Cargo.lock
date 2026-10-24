@@ -3818,6 +3818,7 @@ dependencies = [
 name = "qingjian-lm"
 version = "0.1.1"
 dependencies = [
+ "memmap2",
  "qingjian-core",
  "qingjian-format",
  "thiserror 2.0.21",

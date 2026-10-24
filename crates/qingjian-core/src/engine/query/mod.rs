@@ -26,6 +26,7 @@ impl Engine {
     pub fn query(&self) -> Result<Query, ParseError> {
         self.last_rescored.set(false);
         self.last_choice.set(None);
+        self.forget_stale_compose();
         let mut query = match self.query_inner() {
             Ok(query) => query,
             Err(error) => {

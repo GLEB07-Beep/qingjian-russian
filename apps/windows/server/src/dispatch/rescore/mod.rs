@@ -221,7 +221,12 @@ impl Router {
         **spelling = query;
         let frame = self.self_drawn_frame();
         self.reconcile_candidates(&frame);
-        // 前文在结果回来之前换过（Surrounding 晚到）：这次查询又记下了一批要打分的，再来一轮
-        self.schedule_rescoring();
+        // 这次查询又记下了一批要算的（字分布回来后整句变了，新的一页还要选词打分；或者前文在结果回来之前换过）：
+        // 用户还停着，不再等防抖，直接再来一轮
+        if self.engine.rescoring_pending() && self.engine.request_rescoring() {
+            self.rescore.start_polling();
+        } else {
+            self.rescore.stop();
+        }
     }
 }

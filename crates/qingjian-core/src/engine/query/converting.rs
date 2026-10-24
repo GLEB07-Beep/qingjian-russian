@@ -1,6 +1,7 @@
 //! 整句候选：把词图里重排过的前几条路径变成候选，以及整句转换本身。
 
 use super::*;
+use crate::engine::choice::char_emission;
 
 impl Engine {
     /// 整句候选。没有英文尾段时是整段拼音的转换（[`Self::plain_sentence`]），排在开头的英文候选之后。
@@ -284,6 +285,7 @@ impl Engine {
         } else {
             want
         };
+        let table = self.char_table(patterns);
         let mut paths = sentence::convert_paths(
             &dictionaries,
             &expanded.positions(),
@@ -294,6 +296,11 @@ impl Engine {
             |text| self.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),
             &self.sentence_tones(patterns),
+            &|start, text, syllables| {
+                table.as_deref().map_or(0.0, |table| {
+                    char_emission(table, patterns, start, text, syllables)
+                })
+            },
             &mut self.span_cache.borrow_mut(),
         );
         // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的

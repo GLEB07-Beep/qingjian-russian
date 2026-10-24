@@ -46,7 +46,7 @@ use qingjian_dictionary::{AuxCodeLookup, Dictionary, Match, WordList};
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
 pub use aux_code::is_valid_aux_code_key;
-pub use choice::{ChoiceModel, ChoiceTier};
+pub use choice::{CharTable, ChoiceModel, ChoiceTier};
 pub use commit::{LastCommit, Transition};
 pub use gloss::{FilledGloss, GlossFiller, NoGlossFiller};
 pub use input_log::{
@@ -267,6 +267,9 @@ pub struct Engine {
 
     /// 整句转换的格子候选缓存：跨按键复用，学习数据一变就清（见 [`Self::forget_span_cache`]）。
     span_cache: std::cell::RefCell<sentence::SpanCache>,
+
+    /// 短语级语言模型（知意的三元 n-gram）：选词重排里给整段候选打 ln P，没接时用二元模型逐词累加。
+    phrase_model: Option<std::sync::Arc<dyn sentence::PhraseModel>>,
 
     /// 本次会话经我们上屏的文本，按应用分开记；应用不给光标前文时给模型当前文。
     history: InputHistory,
@@ -493,6 +496,7 @@ impl Engine {
             neural_context: RESCORE_CONTEXT_CHARS,
             correction_cache: std::cell::RefCell::new(None),
             span_cache: std::cell::RefCell::new(sentence::SpanCache::default()),
+            phrase_model: None,
             recent_commits: Vec::new(),
             logger: input_log::MutedLogger::new(Box::new(NoInputLogger)),
             private: false,

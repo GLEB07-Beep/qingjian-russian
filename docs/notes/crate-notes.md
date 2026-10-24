@@ -208,6 +208,17 @@ safetensors 版由 candle 跑（mac），feature `zhiyi-onnx` 加上 int8 ONNX �
 运行时按路径加载 `onnxruntime.dll` 1.24.4（`api-24`），由 `apps/windows/installer/fetch-onnxruntime.ps1` 从 NuGet 取、按包的 SHA-256 核对。
 DirectML 试过不用：每次打分的序列长度都不同，Radeon 880M 集显上均衡档中位 200 ms、准确档 182 ms，同机 CPU 两线程 28 / 37 ms、省电档 18 ms（2026-10-21）。
 两版对拍：`zhiyi::tests::onnx_agrees_with_candle`（设三个环境变量才跑，见测试注释）。
+ONNX 版另有 composition 头 `char_logits`（每个拼音槽位一行、6163 字的 logits，列与 `unified_vocab.json` 的 `chars` 对应），
+`ChoiceScorer::compose` 取它、逐行 log softmax，接到 Core 的 `ChoiceModel::compose`；candle 版没接这个头，返回 `None`。
+它对每个音节各自出分布，字与字之间不管连贯（单用它逐位取最好：`yanxiashigong` → 眼下是公），所以只当整句词图里的字分数用，成词交给词图。
+
+Core 侧（`engine/choice`）：整句转换前按（前文, 音节串）取这张字分布表（`Engine::char_table`），没有就记下、和选词打分一起在停顿后送后台，
+回来后重查（与选词重排同一条 `request_rescoring` / `poll_rescoring` 流程，最近 8 张缓存）。词图里每个词加
+`EMISSION_WEIGHT`（0.5）×Σ（该字 log 概率 − 这个槽位最好的字，下限 `EMISSION_FLOOR` −12）；读音被敲错边、模糊音改过的字
+字分布说明不了，固定 `ALTERED_EMISSION`（−4），取舍交给原来的纠错代价（直接用绝对 log 概率时回放整句 82.6% → 79.7%，纠错路径被整条压掉）。
+2026-10-23 冷启动整句评测（知意 10-21 版、均衡档，基线 → 接上）：自己的输入 58.6% → 63.5%、本仓库文档抽样 29.7% → 40.8%、
+维基新闻留出集 59.5% → 69.0%；去掉上文后提升缩到 +1.8～3（模型很靠上文）；冻结回放词 89.0% → 89.7%、整句 82.6% → 80.5%
+（掉的多是日志里当时选了错句，与 `di` / `du` 那次同类的统计假象，另有「在 / 再」口语写法）。
 
 Core 的 `sentence::SentenceScorer` 有两个实现，同一个 trait 拿到**两种条件**（`context` 光标前文、`keys` 这批路径共同解释的那段按键），各挑自己训练时的那个、忽略另一个：
 
@@ -262,6 +273,14 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 （没有这两个文件就退化为一元词频整句）。数据由 `tools/corpus/parquet_to_text.py`（uv 脚本，HF parquet → 简体纯文本）加
 `cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --phrases assets/lexicon/domain_words.tsv --brand assets/lexicon/brand.tsv --brand assets/lexicon/mixed_words.tsv data/corpus/*.txt` 生成；语料在 `data/corpus/`（gitignore）。
 短语层不当 token 统计（分词时摘掉、统计完按成分合成一元 / 二元，短语得分等于原来两个词的路径，见 `bigram.rs` 模块注释），品牌词按给定次数写进一元与句首二元。
+
+`TrigramModel`（`trigram/`）：读知意输入法的词级三元模型 `zh.ngram`（`ZYNGRAM1` 格式，ARPA 回退、log10 量化成 i16，整文件 mmap），
+实现 Core 的 `sentence::PhraseModel`，选词重排里给整段候选打 ln P(候选 | 上文)（上文取最后一行末 12 字，按字束搜索切词，束宽 8、词最长 8 字），
+代替二元模型逐词累加的那一项（`engine/choice` 的 `PHRASE_WEIGHT`）；
+也实现 `LanguageModel`（`log_prob_trigram` 带前前词），由 `MixedModel` 按概率与二元模型插值后当整句词图的语言模型（三元权重 `TRIGRAM_WEIGHT`，
+一边不认识的词只用另一边）。只用三元时无上文的新闻掉分（不认识的专名、技术词被拆错），插值后六个开发集都涨：devA 63.5→65.6、项目文档 40.8→46.2、新闻 74.1→76.6。读取器按文件头注释的格式自己实现（知意的代码是 GPL-3.0-only，不搬）。
+模型 79 MB，不进仓库也不随包，放 `data/models/zhiyi-ngram/zh.ngram`；许可 LGPL-2.1-or-later（底子是有墨输入法 / libime 的模型，混了 FineWeb-2、
+Common Crawl、CSL、SkyPile、C4 的统计），可按 GPL-3.0-or-later 使用；再分发前要按知意的 NOTICE 列全来源并跟作者确认。CLI 用 `--ngram`，Windows Server 读用户目录的 `models/zhiyi-ngram/zh.ngram`。
 
 ## crates/qingjian-platform
 
@@ -346,6 +365,9 @@ Windows Server 自绘候选窗（GDI）按 `Frame.columns` / `column_ems` 画矩
 - `--typing` 逐键计时（性能测试用 release 构建跑，目标每键 10 ms 以内）。
 - `--chinese-first` 打开中文优先（`[general] chinese_first = true` 的排法），配合 `--replay` 比两种英文词位置。
 - `--english-max-in-chinese <N>` / `--english-min-position <K>` 对应 `[general]` 同名配置：中文模式英文候选最多几条、有中文候选时最高排到第几位，验证 #768 用。
+- `--ngram <zh.ngram>` 接知意输入法的词级三元模型（`qingjian_lm::TrigramModel`，见 crates/qingjian-lm 一节），选词重排里整段候选的语言模型分改由它给，整句词图里按 `TRIGRAM_WEIGHT` 与二元模型插值。
+- `--zhiyi-onnx <模型目录> --onnx-runtime <onnxruntime.dll> [--zhiyi-tier saver|balanced|accurate]` 接知意 ONNX 版（与 Windows Server 同一条路：选词重排 + 整句字分布）；
+  整句评测、回放与查询都会等后台的分回来再取结果（`rescoring::settled`，最多三轮：字分布回来后整句变了，选词还要再打一次）。
 - `--replay <input-log.jsonl>` 回放评测：把日志里每次上屏的键重新喂给引擎，按来源算首选 / 前五命中率、平均名次、不在候选的条数，打印没命中的例子（`--misses N`）；
   只在内存里学习不写文件，加 `--user-dict` 可带上现有学习数据。
   **按日志记的方案逐条切换**（`replay/scheme.rs` 的 `SchemeSwitcher`，读每条的 `scheme` 字段）：整份日志通常只有一套方案，
