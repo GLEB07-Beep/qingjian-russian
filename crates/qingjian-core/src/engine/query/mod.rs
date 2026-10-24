@@ -4,6 +4,8 @@ use super::*;
 
 mod code;
 mod converting;
+use converting::trim_sentence_alternates;
+mod diagnosing;
 mod english_tail;
 mod generating;
 mod lookup;
@@ -26,6 +28,7 @@ impl Engine {
     pub fn query(&self) -> Result<Query, ParseError> {
         self.last_rescored.set(false);
         self.last_choice.set(None);
+        self.last_choice_scores.borrow_mut().clear();
         self.forget_stale_compose();
         let mut query = match self.query_inner() {
             Ok(query) => query,
@@ -55,6 +58,7 @@ impl Engine {
             self.insert_custom_phrases(&mut query.candidates.items);
         }
         self.rerank_choices(&mut query.candidates.items);
+        trim_sentence_alternates(&mut query.candidates.items);
         query.spelled = result::spelling_for(&query.segmentations, query.candidates.items.first());
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
         // 九宫格没有切分，拼音取拼音行（首选读到的写法），云联想也用它问

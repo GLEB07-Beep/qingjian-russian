@@ -133,7 +133,11 @@ impl Engine {
             }
         }
         let wanted = if alternates && best.syllables.len() >= ALTERNATE_MIN_SYLLABLES {
-            SENTENCE_CANDIDATES
+            if self.has_choice_model() {
+                CHOICE_SENTENCE_CANDIDATES
+            } else {
+                SENTENCE_CANDIDATES
+            }
         } else {
             1
         };
@@ -314,4 +318,17 @@ impl Engine {
         }
         paths
     }
+}
+
+/// 选词模型重排完只留前 [`SENTENCE_CANDIDATES`] 条整句：词图交给模型的 [`CHOICE_SENTENCE_CANDIDATES`] 条多半只差一两个字，
+/// 全显示会把第一页的词挤走。没被模型排到前面的那些本来就只是给它比的。
+pub(in crate::engine) fn trim_sentence_alternates(items: &mut Vec<Candidate>) {
+    let mut kept = 0;
+    items.retain(|c| {
+        if c.kind != CandidateKind::Sentence {
+            return true;
+        }
+        kept += 1;
+        kept <= SENTENCE_CANDIDATES
+    });
 }

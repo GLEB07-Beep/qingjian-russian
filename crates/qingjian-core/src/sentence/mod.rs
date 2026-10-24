@@ -15,6 +15,7 @@
 
 mod context;
 mod conversion;
+mod diagnosis;
 mod interpolation;
 mod language_model;
 mod personal;
@@ -29,6 +30,7 @@ mod viterbi;
 
 pub use context::Context;
 pub use conversion::Conversion;
+pub use diagnosis::{Loss, Parts, diagnose};
 pub use interpolation::Interpolation;
 pub use language_model::{LanguageModel, NoLanguageModel};
 pub use personal::Personal;
@@ -82,6 +84,9 @@ pub const TONE_PENALTY: f64 = std::f64::consts::LN_2;
 
 /// 每个位置最多保留几条部分路径。
 pub const BEAM_WIDTH: usize = 8;
+
+/// 要的整句路径多于束宽时（给选词模型整句重排），每个词留几条来路：只留最优一条的话末尾几条路径只差最后一个词。
+pub const NBEST_HISTORIES: usize = 4;
 
 /// 语言模型不认识、只能按词库词频兜底的词扣多少分：模型见过的词更可信。
 pub const FALLBACK_PENALTY: f64 = -4.0;

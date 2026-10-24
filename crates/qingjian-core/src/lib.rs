@@ -48,9 +48,9 @@ pub use correction::Correction;
 pub use email::{EmailCompletion, email_completions};
 pub use emoji::{EmojiTable, skin_tone_variants};
 pub use engine::{
-    AnnotationReport, AuxSegment, BOOKS, Book, CharTable, ChoiceModel, ChoiceNote, ChoiceTier,
-    CloudWord, CommitEntry, DEFAULT_AUX_CODE_KEY, ENGLISH_CANDIDATES_MAX, Encounter, Engine,
-    EngineSession, FRESH_UNTIL, FilledGloss, Forgotten, GlossFiller, INPUT_LOG_VERSION,
+    AnnotationReport, AuxSegment, BOOKS, Book, CharTable, ChoiceModel, ChoiceNote, ChoiceScore,
+    ChoiceTier, CloudWord, CommitEntry, DEFAULT_AUX_CODE_KEY, ENGLISH_CANDIDATES_MAX, Encounter,
+    Engine, EngineSession, FRESH_UNTIL, FilledGloss, Forgotten, GlossFiller, INPUT_LOG_VERSION,
     InputLogEntry, InputLogger, InputSource, Learner, LevelCount, MarkedKind, MarkedSegment,
     ModeKeys, NEURAL_MARGIN, NEURAL_WEIGHT, NoGlossFiller, NoInputLogger, NoLearner, NoPredictor,
     NoTranslator, NoUsageMeter, NoVocabularyTracker, Prediction, PredictionKind, PredictionPolicy,

@@ -11,6 +11,7 @@ mod job;
 mod model;
 mod ranker;
 mod request;
+mod score;
 mod tier;
 mod worker;
 
@@ -28,6 +29,7 @@ use job::Job;
 pub use model::ChoiceModel;
 pub(crate) use ranker::ChoiceRanker;
 pub(crate) use request::ChoiceRequest;
+pub use score::ChoiceScore;
 pub use tier::ChoiceTier;
 
 /// 最多看前这么多条候选（知意 `laya` 的 2 × 每页 9 条），各档在这以内取。
@@ -44,6 +46,10 @@ const PHRASE_WEIGHT: f64 = 1.0;
 
 /// 中文位置先验的权重：新日志三档里 1.0 最好（词 89.6% → 89.9%）。
 const RANK_WEIGHT: f64 = 1.0;
+
+/// 整句候选的语言模型分与位置先验再乘这个数：整句的先后本来就是词图按语言模型排的，两项照算等于把同一个判断数了三遍，
+/// 知意对、语言模型错的那些句子（维基 / 危机）被压回去。开发集上离线模拟两项各 0.25～1 扫过，0.5 最好（六组合计 +5.6 点）。
+const SENTENCE_TERMS_SCALE: f64 = 0.5;
 
 /// 英文位置先验的权重（`laya.english_rank_prior_weight`）。
 const ENGLISH_RANK_WEIGHT: f64 = 0.2;
@@ -84,6 +90,11 @@ impl Engine {
     /// 换档，下一次查询就按新档比。
     pub fn set_choice_tier(&mut self, tier: ChoiceTier) {
         self.choice_tier = tier;
+    }
+
+    /// 最近一次查询里选词模型给这页各候选的分（没排过为空）：评测归因用。
+    pub fn last_choice_scores(&self) -> Vec<ChoiceScore> {
+        self.last_choice_scores.borrow().clone()
     }
 
     pub fn has_choice_model(&self) -> bool {
@@ -154,11 +165,14 @@ impl Engine {
         let previous = (!english)
             .then(|| last_word(&request.context, model))
             .flatten();
-        let best = (0..whole.len())
+        let scores: Vec<ChoiceScore> = (0..whole.len())
             .map(|k| {
                 let rank = whole[k].0;
-                let prior = if english {
-                    ENGLISH_RANK_WEIGHT * ENGLISH_RANK_LOG_PROB[rank.min(4)]
+                let (language_model, prior) = if english {
+                    (
+                        0.0,
+                        ENGLISH_RANK_WEIGHT * ENGLISH_RANK_LOG_PROB[rank.min(4)],
+                    )
                 } else {
                     let lm = match &phrase {
                         Some(scores) => PHRASE_WEIGHT * scores[k],
@@ -166,12 +180,30 @@ impl Engine {
                             LM_WEIGHT * text_log_prob(previous.as_deref(), &request.texts[k], model)
                         }
                     };
-                    lm + RANK_WEIGHT * CHINESE_RANK_LOG_PROB[rank.min(WINDOW - 1)]
+                    let scale = if items[rank].kind == CandidateKind::Sentence {
+                        SENTENCE_TERMS_SCALE
+                    } else {
+                        1.0
+                    };
+                    (
+                        scale * lm,
+                        scale * RANK_WEIGHT * CHINESE_RANK_LOG_PROB[rank.min(WINDOW - 1)],
+                    )
                 };
-                (k, log_probs[k] + prior)
+                ChoiceScore {
+                    text: request.texts[k].clone(),
+                    rank,
+                    model: log_probs[k],
+                    language_model,
+                    prior,
+                }
             })
-            .max_by(|a, b| a.1.total_cmp(&b.1))
-            .map_or(0, |(k, _)| k);
+            .collect();
+        let total = |s: &ChoiceScore| s.model + s.language_model + s.prior;
+        let best = (0..scores.len())
+            .max_by(|&a, &b| total(&scores[a]).total_cmp(&total(&scores[b])))
+            .unwrap_or(0);
+        *self.last_choice_scores.borrow_mut() = scores;
         self.last_rescored.set(true);
         self.last_choice.set(Some(ChoiceNote {
             from: whole[best].0 - whole[0].0,

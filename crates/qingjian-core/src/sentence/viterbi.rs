@@ -7,9 +7,9 @@ use qingjian_dictionary::{Dictionary, Match, SyllablePattern};
 
 use super::{
     ABBREVIATED_SPAN_CANDIDATES, BEAM_WIDTH, Context, Conversion, LanguageModel,
-    MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, Personal, SECONDARY_PENALTY, SPAN_CANDIDATES,
-    SentenceWord, SpanCache, SpanWord, TONE_PENALTY, fallback_log_prob, reading_cost,
-    transition_log_prob,
+    MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, NBEST_HISTORIES, Personal, SECONDARY_PENALTY,
+    SPAN_CANDIDATES, SentenceWord, SpanCache, SpanWord, TONE_PENALTY, fallback_log_prob,
+    reading_cost, transition_log_prob,
 };
 use crate::ranking::weight_bonus;
 use crate::zhuyin::tone;
@@ -125,7 +125,9 @@ pub fn convert_with(
     .next()
 }
 
-/// 得分最高的前 `k` 条路径（最多束宽条，按得分降序，文本相同的只留一条）：给重打分用。
+/// 得分最高的前 `k` 条路径（按得分降序，文本相同的只留一条）：给重打分用。
+/// `k` 不超过束宽时每个词只留最优的一条来路（Viterbi），末尾那几条路径多半只差最后一个词；
+/// 超过束宽时每个词留前 [`NBEST_HISTORIES`] 条来路、束宽同比放大，前面的词不同的整句才留得下来（给选词模型整句重排）。
 /// `tones` 是注音每个位置敲的声调（与 `positions` 对齐，可以更短；全拼 / 双拼给空），按 [`TONE_PENALTY`] 给格子选词打折、给路径扣分。
 /// `emission(起始位置, 词, 词的读音)` 是词上各字的额外得分（选词模型按音节出的字分布），没有就给恒 0。
 #[allow(clippy::too_many_arguments)]
@@ -165,6 +167,7 @@ pub fn convert_paths(
     if n == 0 || k == 0 {
         return Vec::new();
     }
+    let histories = if k > BEAM_WIDTH { NBEST_HISTORIES } else { 1 };
     let total: f64 = dictionaries
         .iter()
         .map(|d| d.total_frequency() as f64)
@@ -185,7 +188,7 @@ pub fn convert_paths(
         penalty: 0.0,
     });
     for start in 0..n {
-        prune(&mut nodes[start]);
+        prune(&mut nodes[start], histories);
         if nodes[start].is_empty() {
             continue;
         }
@@ -202,6 +205,7 @@ pub fn convert_paths(
                     &weight,
                     &cost,
                     span_tones,
+                    span_limit(span),
                 )
             });
             if hits.is_empty() {
@@ -211,25 +215,27 @@ pub fn convert_paths(
             for hit in hits.iter() {
                 let bonus = weight_bonus(weight(&hit.text));
                 let fallback = fallback_log_prob(hit.frequency, hit.secondary, log_total);
-                let (score, back) =
-                    best_predecessor(&nodes, start, &hit.text, model, personal, fallback);
-                let previous = &nodes[start][back];
-                let penalty = previous.penalty + hit.penalty;
-                let static_step = model
-                    .log_prob((start > 0).then_some(previous.text.as_str()), &hit.text)
-                    .unwrap_or(fallback);
-                let static_score = previous.static_score + static_step;
-                nodes[end].push(Node {
-                    start,
-                    text: hit.text.clone(),
-                    syllables: hit.syllables.clone(),
-                    score: score + bonus - hit.penalty - hit.tone - hit.reading
-                        + emission(start, &hit.text, &hit.syllables),
-                    static_score,
-                    back,
-                    placeholder: false,
-                    penalty,
-                });
+                let emitted = emission(start, &hit.text, &hit.syllables);
+                for (score, back) in predecessors(
+                    &nodes, start, &hit.text, model, personal, fallback, histories,
+                ) {
+                    let previous = &nodes[start][back];
+                    let penalty = previous.penalty + hit.penalty;
+                    let static_step = model
+                        .log_prob((start > 0).then_some(previous.text.as_str()), &hit.text)
+                        .unwrap_or(fallback);
+                    let static_score = previous.static_score + static_step;
+                    nodes[end].push(Node {
+                        start,
+                        text: hit.text.clone(),
+                        syllables: hit.syllables.clone(),
+                        score: score + bonus - hit.penalty - hit.tone - hit.reading + emitted,
+                        static_score,
+                        back,
+                        placeholder: false,
+                        penalty,
+                    });
+                }
             }
         }
         // 这个音节连单字都查不到：用音节本身占位，别让整句断掉
@@ -257,7 +263,7 @@ pub fn convert_paths(
             });
         }
     }
-    prune(&mut nodes[n]);
+    prune(&mut nodes[n], histories);
     let mut paths: Vec<Conversion> = Vec::with_capacity(k.min(nodes[n].len()));
     for index in 0..nodes[n].len() {
         if paths.len() >= k {
@@ -316,8 +322,9 @@ impl LanguageModel for NoModel {
 /// 一个格子里的候选词：所有词库的精确命中，按词频（加用户选择次数与个人出现次数，替代写法命中的按代价打折）取前几个。
 /// 个人次数只在这里保证用户常用的同音词进得了格子，不进路径打分（那是 n-gram 的事）；
 /// 打折让敲错变体命中的词只在原样命中不够多时才进格子，而常用词（关系）即使打折也留得住。
-/// 格子里有简拼位置时命中的是一大片不同读音的词，多留一些让语言模型去挑。
-fn span_candidates(
+/// 格子里有简拼位置时命中的是一大片不同读音的词，多留一些让语言模型去挑（[`span_limit`]）；`limit` 给 `usize::MAX` 就是不截断（诊断用）。
+#[allow(clippy::too_many_arguments)]
+pub(super) fn span_candidates(
     dictionaries: &[&Dictionary],
     span: &[Vec<SyllablePattern<'_>>],
     start: usize,
@@ -325,6 +332,7 @@ fn span_candidates(
     weight: &impl Fn(&str) -> u32,
     cost: &impl Fn(usize, &str) -> f64,
     tones: &[Option<u8>],
+    limit: usize,
 ) -> Vec<SpanWord> {
     let alternatives = span.iter().any(|p| p.len() > 1);
     let penalty_of = |m: &Match<'_>| {
@@ -358,12 +366,7 @@ fn span_candidates(
         .collect();
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     scored.dedup_by(|a, b| a.3.text == b.3.text);
-    let abbreviated = span.iter().any(|p| p.iter().any(|t| !t.complete));
-    scored.truncate(if abbreviated {
-        ABBREVIATED_SPAN_CANDIDATES
-    } else {
-        SPAN_CANDIDATES
-    });
+    scored.truncate(limit);
     scored
         .into_iter()
         .map(|(_, penalty, tone, hit)| SpanWord {
@@ -378,8 +381,62 @@ fn span_candidates(
         .collect()
 }
 
-/// 在 `nodes[start]` 的前驱里挑让 `word` 得分最高的那条，返回 (累计得分, 前驱下标)。
+/// 一个格子最多留几个词：有简拼位置的多留。
+pub(super) fn span_limit(span: &[Vec<SyllablePattern<'_>>]) -> usize {
+    if span.iter().any(|p| p.iter().any(|t| !t.complete)) {
+        ABBREVIATED_SPAN_CANDIDATES
+    } else {
+        SPAN_CANDIDATES
+    }
+}
+
+/// 在 `nodes[start]` 的前驱里挑让 `word` 得分最高的前 `histories` 条，按得分降序返回 (累计得分, 前驱下标)。
 /// 转移概率先问静态模型（不认识就用词库兜底值），再与个人 n-gram 插值；前二词是前驱自己的前驱（回指）。
+fn predecessors(
+    nodes: &[Vec<Node>],
+    start: usize,
+    word: &str,
+    model: &dyn LanguageModel,
+    personal: Personal<'_>,
+    fallback: f64,
+    histories: usize,
+) -> Vec<(f64, usize)> {
+    if histories == 1 {
+        return vec![best_predecessor(
+            nodes, start, word, model, personal, fallback,
+        )];
+    }
+    let mut all: Vec<(f64, usize)> = (0..nodes[start].len())
+        .map(|index| {
+            let score = nodes[start][index].score
+                + transition_log_prob(
+                    model,
+                    personal,
+                    predecessor_context(nodes, start, index),
+                    word,
+                    fallback,
+                );
+            (score, index)
+        })
+        .collect();
+    all.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    all.truncate(histories);
+    all
+}
+
+/// `nodes[start][index]` 作前驱时的上下文：前词是它，前二词是它的回指。
+fn predecessor_context(nodes: &[Vec<Node>], start: usize, index: usize) -> Context<'_> {
+    if start == 0 {
+        return Context::START;
+    }
+    let previous = &nodes[start][index];
+    Context {
+        previous: Some(previous.text.as_str()),
+        earlier: (previous.start > 0).then(|| nodes[previous.start][previous.back].text.as_str()),
+    }
+}
+
+/// 让 `word` 得分最高的那条前驱，返回 (累计得分, 前驱下标)。
 fn best_predecessor(
     nodes: &[Vec<Node>],
     start: usize,
@@ -407,14 +464,23 @@ fn best_predecessor(
     best
 }
 
-/// 按得分降序只留束宽条。
-fn prune(nodes: &mut Vec<Node>) {
+/// 按得分降序只留束宽 × `histories` 条，同一个词（同起点同文本）最多留 `histories` 条来路。
+fn prune(nodes: &mut Vec<Node>, histories: usize) {
     nodes.sort_by(|a, b| {
         b.score
             .partial_cmp(&a.score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    nodes.truncate(BEAM_WIDTH);
+    if histories > 1 {
+        let mut seen: std::collections::HashMap<(usize, String), usize> =
+            std::collections::HashMap::new();
+        nodes.retain(|node| {
+            let count = seen.entry((node.start, node.text.clone())).or_default();
+            *count += 1;
+            *count <= histories
+        });
+    }
+    nodes.truncate(BEAM_WIDTH * histories);
 }
 
 #[cfg(test)]

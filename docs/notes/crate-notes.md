@@ -241,6 +241,11 @@ P2C 教师强制打分 `CharScorer::score_p2c(keys, texts)`：前缀 `<eos> + �
 共享拼音前缀 KV，候选批量前向；超过上下文时报错，不截断拼音。CLI 实验入口 `--eval-p2c data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm --eval-text data/eval/sentences.tsv`，
 用 `--neural-weight` 调 λ。评测适配器与产品端 `P2cScorer` 同一条件，只是推理出错时直接终止（不静默回退到基线冒充成功）。
 `--eval-details <输出.jsonl>` 为任意整句评测保存逐句首选、整句候选、全部候选与查询耗时，支持配对比较，仍不上屏、不学习。
+没命中首选的句子另记 `loss`（正确答案丢在哪一步）与 `path_rank`（在词图前 64 条整句里排第几），报告末尾按 `loss` 计数：
+`Engine::diagnose_sentence` 把原句强制对齐到同一张词图（`sentence::diagnose`，同样的格子与打分，只是不剪枝、不限束宽），分成
+`unreachable`（词库拼不出）、`segmentation`（换一种切分才拼得出）、`pruned`（词在格子里排在 `SPAN_CANDIDATES` 之外）、
+`search`（分数更高却被束搜索挤掉）、`scoring`（在词图里但分数低；`loss_detail` 里有两条路径的总分、语言模型分与出字分）、`assembly`（词图对了、候选组装排错）。
+2026-10-24 开发集上 `scoring` 占 70～92%、`pruned` 6～25%（多是单字），其余各约 1～3%；每格放宽到 12 个剪枝几乎消失但首选不变。
 
 P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm`（`P2c::convert` 束宽 5，不经词图不经重排），
 量的是重排这层架构的上限代价；2081 句上首选 51.9% / 前五 73.5%，对比重排路径的 42.3% / 45.5%，两条路互补（只有生成对 16.5%、只有重排对 6.9%），
@@ -259,6 +264,14 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 整句候选不止一条：`SENTENCE_CANDIDATES` = 3 条，重排后的前几条路径都进候选表，四个音节
 （`ALTERNATE_MIN_SYLLABLES`）以下不给备选（那几格留给词级候选）。冻结集上前三 42.4% → 45.5%，无模型时 38.1% → 43.2%。
 `Engine::sentence_paths` 的 `want` 参数控制算几条：拼写纠错对每个纠正候选都要转一次，那条路仍然只算一条。
+接了选词模型时长输入改要 `CHOICE_SENTENCE_CANDIDATES` = 16 条，由知意选词头带上文整句重排，重排后只显示前 3 条（`trim_sentence_alternates`，第一页仍留给词）。
+要的条数超过束宽时 Viterbi 每个词留前 `NBEST_HISTORIES` = 4 条来路、束宽同比放大：只留一条时末尾几条路径只差最后一个词，束宽 8 放到 32 正确句进前 32 条的比例也几乎不变。
+开发集（均衡档）正确句进第一页 devA 67.8% → 74.8%、项目文档 51.7% → 61.2%、新闻 81.0% → 90.1%，首选 +0～2.6；正确句已在候选里时知意只选中 70～84%，瓶颈在重排。
+冻结回放整句 78.6% → 78.4%、词 90.3% → 90.2%（持平），CLI 查询多 12～16 ms。
+重排时整句候选的语言模型分与位置先验各乘 `SENTENCE_TERMS_SCALE` = 0.5（`engine/choice`）：整句的先后本就是词图按语言模型排的，两项照算等于数三遍，
+挑错的里三到四成是知意对、被这两项压下（维基 → 危机）。`Engine::last_choice_scores` 记这页每条候选的三项分，CLI `--eval-details` 写进 `choice` 字段，
+离线就能模拟不同权重；两项各 0.25～1 扫过，0.5 最好。开发集 devC 78.8% → 80.3%、devCnc 70.4% → 73.0%、项目文档 48.8% → 49.7%，
+冻结回放整句 78.4% → 79.4%、词 90.2% → 90.1%。剩下挑错的约 3/4 是知意自己偏向错句（事件 / 时间、试验 / 实验）。
 
 冷启动字词实验：`--eval-cold <样本.jsonl> --cold-output <新结果.jsonl>` 强制用缺省配置与内存学习器，
 与 `--config` / `--user-dict` / `--predict` / `--replay` 等冲突，不加载或删除个人数据。

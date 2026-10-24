@@ -46,7 +46,7 @@ use qingjian_dictionary::{AuxCodeLookup, Dictionary, Match, WordList};
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
 pub use aux_code::is_valid_aux_code_key;
-pub use choice::{CharTable, ChoiceModel, ChoiceTier};
+pub use choice::{CharTable, ChoiceModel, ChoiceScore, ChoiceTier};
 pub use commit::{LastCommit, Transition};
 pub use gloss::{FilledGloss, GlossFiller, NoGlossFiller};
 pub use input_log::{
@@ -213,6 +213,9 @@ pub struct Engine {
 
     /// 最近一次查询里选词模型排过这页的记录（`rerank_choices` 写，`query` 开头清零），写进输入日志。
     last_choice: std::cell::Cell<Option<input_log::ChoiceNote>>,
+
+    /// 最近一次查询里选词模型给各候选的分（`rerank_choices` 写，`query` 开头清空），给评测看。
+    last_choice_scores: std::cell::RefCell<Vec<choice::ChoiceScore>>,
 
     /// 这段组句里第一次退格前的缓冲区：上屏时与最终键串不同就记一条 `retype`。
     retype_snapshot: Option<String>,
@@ -440,6 +443,10 @@ const RESCORE_PATHS: usize = 6;
 /// 长输入最多给几条整句候选（重排后的前几条路径）：一条不够用，长句错一个字就得拆开重打。
 const SENTENCE_CANDIDATES: usize = 3;
 
+/// 接了选词模型时长输入给几条整句候选：词图交出前这么多条不同的整句，由选词模型带上文整句重排，
+/// 重排后只显示前 [`SENTENCE_CANDIDATES`] 条（`trim_sentence_alternates`）。
+const CHOICE_SENTENCE_CANDIDATES: usize = 16;
+
 /// 结构上打平的切分（`shang ou` / `shan gou`）最多比几种，见 [`Engine::sentence_segmentation`]。
 const TIED_SEGMENTATIONS: usize = 3;
 
@@ -503,6 +510,7 @@ impl Engine {
             log_sequence: 0,
             last_rescored: std::cell::Cell::new(false),
             last_choice: std::cell::Cell::new(None),
+            last_choice_scores: std::cell::RefCell::default(),
             retype_snapshot: None,
             held: Vec::new(),
             hold_selections: true,

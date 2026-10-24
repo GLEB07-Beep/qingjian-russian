@@ -21,7 +21,7 @@ impl ChoiceModel for Prefers {
     fn score(&self, _context: &str, _typed: &[u32], texts: &[&str]) -> Vec<f32> {
         texts
             .iter()
-            .map(|t| if *t == self.0 { 30.0 } else { 0.0 })
+            .map(|t| if *t == self.0 { 100.0 } else { 0.0 })
             .collect()
     }
 }
@@ -159,4 +159,36 @@ fn altered_readings_get_a_fixed_cost_not_the_table() {
         char_emission(&table, &typed, 0, "才", &reading("cai")),
         ALTERED_EMISSION * EMISSION_WEIGHT
     );
+}
+
+#[test]
+fn the_model_picks_from_more_sentences_than_the_list_shows() {
+    let mut engine =
+        Engine::new(Dictionary::parse("是\tshi\t1000\n时\tshi\t100\n事\tshi\t10\n").unwrap());
+    // 两处不是最常用字：词图里排在第九，显示的只有前三条
+    engine.set_choice_model(Some(Arc::new(Prefers("是是时时"))));
+    // 准确档看前 18 条：16 条整句都在模型的窗口里
+    engine.set_choice_tier(ChoiceTier::Accurate);
+    for c in "shishishishi".chars() {
+        engine.push(c);
+    }
+    let sentences = |engine: &Engine| {
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .iter()
+            .filter(|c| c.kind == CandidateKind::Sentence)
+            .map(|c| c.text.clone())
+            .collect::<Vec<_>>()
+    };
+    let before = sentences(&engine);
+    assert_eq!(before.len(), crate::engine::SENTENCE_CANDIDATES);
+    assert!(!before.contains(&"是是时时".to_owned()), "{before:?}");
+    settle(&mut engine);
+    let after = sentences(&engine);
+    assert_eq!(after.len(), crate::engine::SENTENCE_CANDIDATES);
+    assert_eq!(after[0], "是是时时", "{after:?}");
+    assert_eq!(first_texts(&engine)[0], "是是时时");
 }

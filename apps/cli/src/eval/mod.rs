@@ -213,6 +213,14 @@ fn evaluate(
             )),
         ));
     }
+    let loss = if position == Some(0) {
+        None
+    } else {
+        engine.diagnose_sentence(&pair.text, items.first().map(|c| c.text.as_str()))
+    };
+    if let Some(loss) = &loss {
+        *report.losses.entry(loss.kind()).or_default() += 1;
+    }
     let row = serde_json::json!({
         "text": pair.text, "pinyin": pair.pinyin, "context": pair.context,
         "top": items.first().map(|c| c.text.as_str()),
@@ -220,6 +228,12 @@ fn evaluate(
         "position": position,
         "query_ms": elapsed.as_secs_f64() * 1000.0,
         "candidates": items.iter().map(|c| c.text.as_str()).collect::<Vec<_>>(),
+        "loss": loss.as_ref().map(|l| l.kind()),
+        "path_rank": engine.sentence_path_rank(&pair.text, 64),
+        "choice": engine.last_choice_scores().iter().map(|s| serde_json::json!({
+            "text": s.text, "rank": s.rank, "model": s.model, "lm": s.language_model, "prior": s.prior,
+        })).collect::<Vec<_>>(),
+        "loss_detail": loss.as_ref().map(|l| format!("{l:?}")),
     });
     engine.clear();
     row
