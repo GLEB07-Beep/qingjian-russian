@@ -37,6 +37,7 @@ impl Engine {
                 weight: self.learner.weight(hit.text),
                 penalty: 0.0,
                 tone_cost: 0,
+                split: false,
             })
             .collect();
         let lookup = start.elapsed();

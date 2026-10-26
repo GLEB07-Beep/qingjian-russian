@@ -93,6 +93,10 @@ impl Engine {
         let mut scored = Vec::new();
         // 不同切分共享很多前缀（`zh g d o…` 的各种切法前几段一样），同一次查询里同一个模式只查一遍
         let mut memo: HashMap<String, Vec<Match<'_>>> = HashMap::new();
+        // 有一种切法全是完整音节时，别的切法里拆开的音节（`shan` 拆成 `s h an` / `sha n`）多半不是用户的意思
+        let clean = segmentations
+            .iter()
+            .any(|s| s.syllables.iter().all(|x| x.complete));
         for segmentation in &segmentations {
             let mut patterns = segmentation.patterns();
             let count = patterns.len();
@@ -108,6 +112,7 @@ impl Engine {
             let abbreviated = abbreviated_count(&patterns);
             // 没有替代写法时每条命中都是敲的原音节，`penalty` 直接给 0（单字母简拼能命中几万条）
             let hits = self.lookup_all(&positions);
+            let whole_split = clean && segmentation.syllables.iter().any(|x| !x.complete);
             scored.reserve(hits.len());
             for hit in hits {
                 let full_last = last.complete
@@ -120,6 +125,7 @@ impl Engine {
                     weight: self.learner.weight(hit.text),
                     penalty: expanded.penalty(hit.syllables()),
                     tone_cost: crate::zhuyin::tone::cost(hit.text, hit.syllables(), &tones),
+                    split: whole_split,
                 });
             }
             // 输入的前缀也出候选（`kaifazhe` → 开发、开），否则长句没法逐词上屏。
@@ -145,6 +151,8 @@ impl Engine {
                         weight: self.learner.weight(hit.text),
                         penalty: expanded.penalty(hit.syllables()),
                         tone_cost: crate::zhuyin::tone::cost(hit.text, hit.syllables(), &tones),
+                        // 拆开的读法的前缀也算拆开的（`shi sha n` 的 是啥）；同一个词从全是完整音节的切法也命中时那条排在前面
+                        split: whole_split,
                     });
                 }
             }
@@ -157,17 +165,28 @@ impl Engine {
         // `ba` 在「做了」后面出 吧、句首出 把
         let log_total = (self.total_frequency() as f64).max(1.0).ln();
         let letters = choice_key(scope, scope.len());
-        ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
-            let hit = &item.hit;
-            // 纠错生效时覆盖的是纠正后的字母，换算回原串再查「这个输入串下选过什么」
+        // 纠错生效时覆盖的是纠正后的字母，换算回原串再查「这个输入串下选过什么」
+        let choice = |item: &Scored<'_>| {
             let covered = correction
                 .as_ref()
                 .map_or(item.coverage, |c| c.edit.to_original(item.coverage));
-            let choice = letters
+            letters
                 .get(..covered)
-                .map_or(0, |input| self.learner.choice_weight(input, hit.text));
-            (choice, self.word_log_prob(hit, log_total))
+                .map_or(0, |input| self.learner.choice_weight(input, item.hit.text))
+        };
+        ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
+            (choice(item), self.word_log_prob(&item.hit, log_total))
         });
+        let whole = segmentations
+            .iter()
+            .map(Segmentation::letters)
+            .max()
+            .unwrap_or(0);
+        let first = segmentations
+            .first()
+            .and_then(|s| s.syllables.first())
+            .map_or(0, |s| s.text.len());
+        ranking::arrange(&mut scored, whole, first, clean, |item| choice(item) > 0);
         // 辅码态：词库候选按码段**反向**过滤（逐个问「有没有以码段开头的码」），无码词直接隐藏；
         // 命中的按「完全匹配码 > 码长降序 > 原词频序」重排（stable sort 保住 rank 排好的原序）。
         // 码段为空（刚敲下触发键）时不过滤，候选与纯拼音态一模一样。

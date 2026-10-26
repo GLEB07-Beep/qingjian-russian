@@ -115,6 +115,7 @@ impl Engine {
                 weight: self.learner.weight(hit.text),
                 penalty: 0.0,
                 tone_cost: 0,
+                split: false,
             });
         }
         for prefix_len in (1..count).rev() {
@@ -137,6 +138,7 @@ impl Engine {
                     weight: self.learner.weight(hit.text),
                     penalty: 0.0,
                     tone_cost: 0,
+                    split: false,
                 });
             }
         }
