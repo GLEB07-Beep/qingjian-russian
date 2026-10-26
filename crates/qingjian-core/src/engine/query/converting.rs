@@ -21,16 +21,21 @@ impl Engine {
             return;
         };
         let keys = self.composition.scope();
-        let first_segmentation = |text: &str| parser::segment(text).ok()?.into_iter().next();
         match english_tail {
             Some(tail) if head_wins => {
                 if let Some(mixed) = self.mixed_sentence(best, tail, typos) {
                     items.insert(0, mixed);
                 }
-                // 整段读成拼音的那条本来就是「另一种读法」，只给一条
+                // 整段读成拼音的那条本来就是「另一种读法」，只给一条：与比分时同一种切分，取原样读的那条（第二条是纠正）
+                let segmentations = parser::segment(keys).ok();
                 if tail.competes
-                    && let Some(full) = first_segmentation(keys)
-                    && let Some(plain) = self.plain_sentence(items, &full, typos, false).pop()
+                    && let Some(full) = segmentations
+                        .as_deref()
+                        .and_then(|s| self.sentence_segmentation(s, typos))
+                    && let Some(plain) = self
+                        .plain_sentence(items, full, typos, false)
+                        .into_iter()
+                        .next()
                 {
                     let position = items.len().min(1);
                     items.insert(position, plain);
@@ -145,19 +150,19 @@ impl Engine {
         } else {
             1
         };
-        let as_typed = typos
-            && reads_as_typed(best)
-            && self
-                .sentence_paths(&best.patterns(), false, false, 1)
-                .first()
-                .is_some_and(|path| self.credible(path));
-        let corrected = if as_typed {
-            self.sentence_paths(&best.patterns(), true, false, 1)
+        let (as_typed, corrected) = if typos && reads_as_typed(best) {
+            let corrected = self
+                .sentence_paths(&best.patterns(), true, false, 1)
                 .into_iter()
                 .next()
-                .filter(|path| path.altered() && !path.has_placeholder())
+                .filter(|path| path.altered() && !path.has_placeholder());
+            let as_typed = self
+                .sentence_paths(&best.patterns(), false, false, 1)
+                .first()
+                .is_some_and(|path| self.credible(path, corrected.as_ref()));
+            (as_typed, corrected.filter(|_| as_typed))
         } else {
-            None
+            (false, None)
         };
         let mut out = self.sentence_candidates(items, best, typos && !as_typed, wanted);
         let Some(corrected) = corrected else {
@@ -196,20 +201,26 @@ impl Engine {
         out
     }
 
-    /// 路径上每个词语言模型都认识（没接模型时退回主词库里的词都算），且至少有一个多字词：原样读出这样的路径才算「读得通」。
+    /// 原样读出的路径上，纠正那条没有的词语言模型都认识（没接模型时退回主词库里的词都算），且至少有一个多字词：这样才算「读得通」。
     /// 只看有没有词等于从不纠：青简词库里几乎每种读音都有个词（赞恩、咋嫩），它们模型不认识；
     /// 每个音节也总有个常用字，全靠单字拼出来的（赞 + 恩）不算。
     /// 不要求主词库：补充词库里模型认识的词（傻逼）也是用户敲的原话。
-    fn credible(&self, path: &Conversion) -> bool {
+    /// 两条都有的词不算：长句里有个模型不认识的专名（菩提伽耶），纠正那条也照样带着它，不能因此判原样读不通（`xintaan…` → 新法案）。
+    fn credible(&self, path: &Conversion, corrected: Option<&Conversion>) -> bool {
+        let shared = |text: &str| corrected.is_some_and(|c| c.words.iter().any(|w| w.text == text));
         !path.has_placeholder()
             && path.words.iter().any(|word| word.text.chars().count() >= 2)
-            && path.words.iter().all(|word| {
-                if self.language_model.is_empty() {
-                    self.in_primary_dictionary(&word.text, &word.syllables)
-                } else {
-                    self.language_model.log_prob(None, &word.text).is_some()
-                }
-            })
+            && path
+                .words
+                .iter()
+                .filter(|word| !shared(&word.text))
+                .all(|word| {
+                    if self.language_model.is_empty() {
+                        self.in_primary_dictionary(&word.text, &word.syllables)
+                    } else {
+                        self.language_model.log_prob(None, &word.text).is_some()
+                    }
+                })
     }
 
     /// [`Self::plain_sentence`] 里按一种读法（`typos` 决定加不加敲错边）出的整句候选。

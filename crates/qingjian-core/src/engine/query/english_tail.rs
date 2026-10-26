@@ -124,9 +124,11 @@ impl Engine {
     /// `woxiangxuexirust` 上实测头段拿 +6.9、整段拿 +21.2，个人模型越肥差距越大——
     /// 用户打得越多混输越打不出来。这是「哪种输入方式」的判断，本来也该由静态模型定，不归个人频次管。
     pub(super) fn mixed_beats_plain(&self, scope: &str, tail: &EnglishTail) -> bool {
+        // 按整句同一个规则挑切分：切分器打平时贪心取的那种（`zhengcenanti` 的 zheng cen an ti）会让拼音读法白白输掉
         let convert = |text: &str, whole: bool| {
             let segmentations = parser::segment(text).ok()?;
-            self.convert_sentence_with(&segmentations.first()?.patterns(), true, whole)
+            let best = self.sentence_segmentation(&segmentations, true)?;
+            self.convert_sentence_with(&best.patterns(), true, whole)
         };
         let (Some(head), Some(plain)) = (
             convert(&scope[..tail.head_len], false),

@@ -400,3 +400,33 @@ fn learned_typos_do_not_override_what_was_typed() {
     let items = engine.query().unwrap().candidates.items;
     assert!(items.iter().all(|c| c.text != "杀不"), "{items:?}");
 }
+
+/// 认识 美感 / 没关系，不认识专名 菩提伽耶 的语言模型。
+struct PutiModel;
+
+impl LanguageModel for PutiModel {
+    fn log_prob(&self, _previous: Option<&str>, word: &str) -> Option<f64> {
+        match word {
+            "没关系" => Some(-6.0),
+            "美感" => Some(-11.0),
+            "洗" => Some(-9.0),
+            _ => None,
+        }
+    }
+}
+
+/// 两种读法都带着同一个模型不认识的专名（菩提伽耶）时，它不算原样读不通的理由：只比两条不同的那段，
+/// 原样的 美感洗 仍排第一，纠正的 没关系 第二（长句里一个生僻专名就让整句被「纠正」，`xintaan…` → 新法案）。
+#[test]
+fn words_shared_with_the_correction_do_not_make_the_typed_reading_incredible() {
+    let dictionary = Dictionary::parse(concat!(
+        "没关系\tmei guan xi\t800000\n美感\tmei gan\t30000\n洗\txi\t100000\n",
+        "菩提伽耶\tpu ti jia ye\t200\n"
+    ))
+    .unwrap();
+    let mut engine = Engine::new(dictionary).with_language_model(Box::new(PutiModel));
+    engine.set_input("meiganxiputijiaye");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "美感洗菩提伽耶", "{items:?}");
+    assert_eq!(items[1].text, "没关系菩提伽耶", "{items:?}");
+}

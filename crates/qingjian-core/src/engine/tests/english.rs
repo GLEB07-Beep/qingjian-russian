@@ -282,10 +282,10 @@ fn english_in_chinese_off_stops_the_english_tail() {
         Engine::new(Dictionary::parse(DICT).unwrap()).with_english(words)
     };
 
-    // 开着时与 issue 的复现一致：整句把 nine 当英文尾段
+    // 开着时英文尾段照样参与比分，拼音读法按整句挑的切分（na ni ne，不是切分器贪心的 nan i ne）来比，那你呢 赢
     let mut on = build();
     on.set_input("nanine");
-    assert_eq!(texts_of(&on)[0], "那nine");
+    assert_eq!(texts_of(&on)[0], "那你呢");
 
     let mut off = build();
     off.set_english_in_chinese(false);
@@ -815,4 +815,19 @@ fn english_word_is_not_buried_by_reading_key_choices() {
     commit(&mut engine, "wenti", "问题");
     engine.set_input("went");
     assert_eq!(texts_of(&engine)[0], "went");
+}
+
+/// 英文尾段与整段拼音比分时，拼音读法按整句挑的切分来算：切分器打平时贪心取的 `zheng cen an ti` 读出 政策安提，
+/// 拿它去比会让 解决政策anti 赢、正确的 政策难题 连候选都没有。
+#[test]
+fn the_pinyin_reading_competes_with_its_best_segmentation() {
+    const DICT: &str = concat!(
+        "政策\tzheng ce\t50000\n难题\tnan ti\t20000\n岑\tcen\t50\n安\tan\t30000\n",
+        "提\tti\t30000\n政\tzheng\t3000\n"
+    );
+    let words = WordList::parse("anti\tanti\t6000\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(DICT).unwrap()).with_english(words);
+    engine.set_input("zhengcenanti");
+    let all = texts_of(&engine);
+    assert_eq!(all[0], "政策难题", "{all:?}");
 }
