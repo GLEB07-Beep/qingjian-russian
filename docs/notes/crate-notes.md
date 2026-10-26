@@ -97,6 +97,13 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   有「每个音节都完整、末尾不是落单单字母」的变体时残尾变体不参与，免得 `keyyi` 的 可以 被 `ke yi y…` 抢走），
   纠正之间比较时换位减 `TypoCosts::correction_transpose_discount`（1 nat，CLI `--tune correction-transpose=`），与原样比不减；
   2026-09-15 回放 283 词 / 23 句：词首选 89.0%、整句 82.6%，与改前持平（折扣若也用在与原样比，`zhongwne` 会误纠成 中文，整句掉一条）。
+- 原样优先（#808）：敲的拼音个个音节完整（`engine::reads_as_typed`）时整段纠正不做；整句首选只按原样读，
+  条件是原样的最优路径「读得通」（`Engine::credible`：每个词语言模型都认识——没接模型时退回主词库——且至少一个多字词；
+  全靠单字或模型不认识的碎片拼出来的，如 `zanen` 的 赞 + 恩 / 咋嫩，不算）。读得通时敲错边（含个人敲错表的折扣）读出的最优路径只当第二条整句；
+  这条读音对不上敲的字母，不进选词重排：试过按首条的单元放它进去，重排里的语言模型分与位置先验只看词常不常用，
+  冻结回放里 上屏（shangping）被 商品、这俩（zhelia）被 这里、肃然 被 虽然 顶掉，词首选 −15、整句 −22。
+  读不通时照旧噪声信道比。开关 `[general] spelling_correction`（`Engine::set_spelling_correction`，CLI `--no-spelling-correction`，缺省开）：
+  关掉后 `find_correction` 直接返回、`expand_positions` 不加敲错边，个人敲错表留着不用。
 
 `EngineSession` 保存可挂起的组句、标点、历史与学习链，`Engine::swap_session` 在同一个引擎里交换输入状态，共用词库与落盘服务。切换上下文时清除查询及异步预测缓存，并由平台恢复各自私密状态。
 

@@ -262,6 +262,8 @@ english_candidates = true
 traditional_variant = "off"
 # 中文模式下整段输入是英文词时（hello / key）是否让中文候选排第一、英文词第二；缺省 false：拼音不像话的输入英文词排第一
 chinese_first = false
+# 拼写纠错：拼音敲错时给纠正后的候选（nihooma → 你好吗）；敲的拼音照原样读得通时纠正只当备选。false 时只按敲的原样读
+spelling_correction = true
 # 中文模式下整段是英文词或英文词的开头时给英文候选与补全（hello、compa → company）；false 时中文模式只出中文，英文模式不受影响
 english_in_chinese = true
 # 中文模式下英文候选（精确词 + 补全）最多几个，1–4；1 时只留最靠前的一条

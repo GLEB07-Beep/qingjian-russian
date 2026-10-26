@@ -56,6 +56,7 @@ fn run() -> Result<(), CliError> {
     tracing::info!(total_ms = started.elapsed().as_millis(), "Engine 就绪");
     engine.set_english_mode(args.english_mode);
     engine.set_chinese_first(args.chinese_first);
+    engine.set_spelling_correction(!args.no_spelling_correction);
     engine.set_show_tones(args.show_tones);
     engine.set_emoji_limit(usize::from(args.emoji_limit));
     tuning::apply(&mut engine, &args.tune)?;

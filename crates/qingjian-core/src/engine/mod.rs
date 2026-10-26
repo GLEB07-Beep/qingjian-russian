@@ -141,6 +141,9 @@ pub struct Engine {
     /// 中英混输时中文候选总在英文词前面（缺省关：拼音不像话的输入英文词排第一，常在中文模式里打英文词的人靠它）。
     chinese_first: bool,
 
+    /// 拼写纠错（整段一处编辑的纠正与整句里的敲错边，含个人敲错表）开不开，配置 `[general] spelling_correction`，缺省开。
+    spelling_correction: bool,
+
     /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省 4）。
     english_max_in_chinese: usize,
 
@@ -220,6 +223,9 @@ pub struct Engine {
 
     /// 最近一次查询里选词模型给各候选的分（`rerank_choices` 写，`query` 开头清空），给评测看。
     last_choice_scores: std::cell::RefCell<Vec<choice::ChoiceScore>>,
+
+    /// 这次查询里敲错边读出、当备选插进来的整句（[`Engine::plain_sentence`]）：选词重排不拿它们比。
+    corrected_alternates: std::cell::RefCell<Vec<String>>,
 
     /// 这段组句里第一次退格前的缓冲区：上屏时与最终键串不同就记一条 `retype`。
     retype_snapshot: Option<String>,
@@ -488,6 +494,7 @@ impl Engine {
             custom_phrases: Vec::new(),
             english_in_chinese: true,
             chinese_first: false,
+            spelling_correction: true,
             english_max_in_chinese: ENGLISH_CANDIDATES_MAX,
             english_min_position: 1,
             auto_space: false,
@@ -516,6 +523,7 @@ impl Engine {
             last_rescored: std::cell::Cell::new(false),
             last_choice: std::cell::Cell::new(None),
             last_choice_scores: std::cell::RefCell::default(),
+            corrected_alternates: std::cell::RefCell::default(),
             retype_snapshot: None,
             held: Vec::new(),
             hold_selections: true,
@@ -662,6 +670,11 @@ fn choice_key(scope: &str, len: usize) -> String {
 }
 
 /// 切分里非末尾的简拼音节数，见 `ranking::Scored::abbreviated`。
+/// 这种切分每个音节都完整：敲的拼音照原样就读得通。这时首选只按原样读，拼写纠错的读法只当备选。
+fn reads_as_typed(segmentation: &Segmentation) -> bool {
+    segmentation.incomplete_count() == 0
+}
+
 fn abbreviated_count(patterns: &[qingjian_dictionary::SyllablePattern<'_>]) -> usize {
     patterns
         .iter()

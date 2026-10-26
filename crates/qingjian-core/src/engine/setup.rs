@@ -528,6 +528,20 @@ impl Engine {
         self.chinese_first
     }
 
+    /// 拼写纠错开关（配置 `[general] spelling_correction`，缺省开）。关掉后拼音只按敲的原样（与模糊音）读：
+    /// 不做整段纠正，整句词图也不加敲错边，学来的敲错表不再起作用（表本身留着）。
+    pub fn set_spelling_correction(&mut self, on: bool) {
+        if self.spelling_correction != on {
+            self.spelling_correction = on;
+            *self.correction_cache.borrow_mut() = None;
+            self.forget_span_cache();
+        }
+    }
+
+    pub fn spelling_correction(&self) -> bool {
+        self.spelling_correction
+    }
+
     /// 中西文之间是否自动补空格（配置 `[general] auto_space`，缺省关）。
     pub fn set_auto_space(&mut self, on: bool) {
         self.auto_space = on;

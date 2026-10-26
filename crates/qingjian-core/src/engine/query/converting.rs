@@ -104,6 +104,10 @@ impl Engine {
     /// `alternates` 为真且输入够长时把重排后的第 2、3 条路径也给出来（[`SENTENCE_CANDIDATES`] 条封顶）：
     /// 长句错一个字就得整句拆开重打，一条候选不够用；短输入不给，那几格留给词级候选更值。
     /// 备选只收真整句（路径上不止一个词），「整段读成一个词」那种噪声信道的判断只认第一条。
+    ///
+    /// 敲的拼音每个音节都完整（[`reads_as_typed`]）、原样读出的最优路径又全是认识的词（[`Self::credible`]）时只按原样读：
+    /// 敲错边读出的最优路径与原样不同就当第二条给（`shabi` 原样 沙比 / 傻逼，杀不 排第二；`meiganxi` 原样 美感洗，没关系 排第二），
+    /// 要不要把它提到第一交给带前文的选词模型去比。原样读不通（有残缺音节，或只读得出 咋嫩 这种碎片）时敲错边照旧可以赢（`zanen` → 咱们）。
     pub(in crate::engine) fn plain_sentence(
         &self,
         items: &mut Vec<Candidate>,
@@ -141,6 +145,81 @@ impl Engine {
         } else {
             1
         };
+        let as_typed = typos
+            && reads_as_typed(best)
+            && self
+                .sentence_paths(&best.patterns(), false, false, 1)
+                .first()
+                .is_some_and(|path| self.credible(path));
+        let corrected = if as_typed {
+            self.sentence_paths(&best.patterns(), true, false, 1)
+                .into_iter()
+                .next()
+                .filter(|path| path.altered() && !path.has_placeholder())
+        } else {
+            None
+        };
+        let mut out = self.sentence_candidates(items, best, typos && !as_typed, wanted);
+        let Some(corrected) = corrected else {
+            return out;
+        };
+        if items
+            .iter()
+            .chain(out.iter())
+            .any(|c| c.text == corrected.text)
+        {
+            return out;
+        }
+        self.corrected_alternates
+            .borrow_mut()
+            .push(corrected.text.clone());
+        let candidate = Candidate {
+            kind: if corrected.word_count() >= 2 {
+                CandidateKind::Sentence
+            } else {
+                CandidateKind::Chinese
+            },
+            text: corrected.text,
+            syllables: corrected.syllables,
+            reading: None,
+            translation: None,
+            aux_code: None,
+        };
+        // 原样那条撞上词级候选、整句一条都不出时，备选跟在词级首选后面
+        if out.is_empty() {
+            let position = (leading_english(items) + 1).min(items.len());
+            items.insert(position, candidate);
+        } else {
+            out.insert(1, candidate);
+            out.truncate(wanted.max(2));
+        }
+        out
+    }
+
+    /// 路径上每个词语言模型都认识（没接模型时退回主词库里的词都算），且至少有一个多字词：原样读出这样的路径才算「读得通」。
+    /// 只看有没有词等于从不纠：青简词库里几乎每种读音都有个词（赞恩、咋嫩），它们模型不认识；
+    /// 每个音节也总有个常用字，全靠单字拼出来的（赞 + 恩）不算。
+    /// 不要求主词库：补充词库里模型认识的词（傻逼）也是用户敲的原话。
+    fn credible(&self, path: &Conversion) -> bool {
+        !path.has_placeholder()
+            && path.words.iter().any(|word| word.text.chars().count() >= 2)
+            && path.words.iter().all(|word| {
+                if self.language_model.is_empty() {
+                    self.in_primary_dictionary(&word.text, &word.syllables)
+                } else {
+                    self.language_model.log_prob(None, &word.text).is_some()
+                }
+            })
+    }
+
+    /// [`Self::plain_sentence`] 里按一种读法（`typos` 决定加不加敲错边）出的整句候选。
+    fn sentence_candidates(
+        &self,
+        items: &mut Vec<Candidate>,
+        best: &Segmentation,
+        typos: bool,
+        wanted: usize,
+    ) -> Vec<Candidate> {
         let mut paths = self.sentence_paths(&best.patterns(), typos, false, wanted);
         if paths.is_empty() {
             return Vec::new();

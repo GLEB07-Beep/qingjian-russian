@@ -229,6 +229,7 @@ fn main() {
     engine.set_aux_show(config.general.aux_code_show);
     engine.set_show_tones(config.general.show_tones);
     engine.set_chinese_first(config.general.chinese_first);
+    engine.set_spelling_correction(config.general.spelling_correction);
     engine.set_emoji_limit(usize::from(config.general.emoji.get()));
     engine.set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
     engine.set_symbol_limit(usize::from(config.general.symbols.get()));

@@ -117,6 +117,18 @@ pub fn input(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     out.push(section_title(ui, theme, "模糊音")?);
     out.push(group(ui, theme, &[fuzzy])?);
 
+    let correction = toggle_info(
+        ui,
+        page,
+        "拼写纠错",
+        Some("拼音敲错时给纠正后的候选；敲的拼音照原样读得通时，纠正只排在后面当备选"),
+        ("general", "spelling_correction"),
+        general.spelling_correction,
+        pinyin_off,
+    )?;
+    out.push(section_title(ui, theme, "纠错")?);
+    out.push(group(ui, theme, &[correction])?);
+
     if Feature::AuxCode.here() {
         out.extend(aux_code(ui, page)?);
     }

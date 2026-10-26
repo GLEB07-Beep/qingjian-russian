@@ -144,6 +144,7 @@
     GNOME Wayland 上改在快捷键交给应用前先原样上屏，鼠标换框仍会丢，见 [notes/linux-bringup.md](../notes/linux-bringup.md)
   - ~~安装脚本按已装框架分支安装、Server 的启动策略~~：`install.sh --frontend auto` 已做，systemd 用户单元 `qingjian-server.service` 随装（`--enable-service` 顺手 enable），两个前端共用一个 Server
   - `[general] preedit` 三档在 IBus 面板下逐个真机验（它的面板能力比 fcitx5 弱），坑见 [notes/linux-bringup.md](../notes/linux-bringup.md)
+- [ ] 安卓设置里加「拼写纠错」开关（`[general] spelling_correction`，2026-10-26 桌面三平台已接；安卓引擎缺省开着，Kotlin 设置页与 `InputOptions` 还没传这一项）
 - [ ] 设置项的平台缺口（设置程序 `apps/settings/src/support/` 表里标「待实现」的项，输入法接上之前设置里不显示；测试逐条对照这里）：
   - [ ] 辅码：Linux
   - [ ] 形码与自定义方案：Linux

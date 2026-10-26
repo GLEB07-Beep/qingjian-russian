@@ -107,6 +107,10 @@ pub struct Args {
     #[arg(long)]
     pub chinese_first: bool,
 
+    /// 关掉拼写纠错（配置 `[general] spelling_correction = false`）：只按敲的原样（与模糊音）读，比开关两种排法用
+    #[arg(long)]
+    pub no_spelling_correction: bool,
+
     /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省 4）
     #[arg(long, default_value_t = qingjian_core::ENGLISH_CANDIDATES_MAX)]
     pub english_max_in_chinese: usize,

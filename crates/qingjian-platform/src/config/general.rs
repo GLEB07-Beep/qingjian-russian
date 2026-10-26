@@ -86,6 +86,10 @@ pub struct GeneralConfig {
     /// 常在中文模式里打英文词的人不受影响；想要中文永远在前的自己打开。
     pub chinese_first: bool,
 
+    /// 拼写纠错：拼音敲错时（切不动、多敲少敲、敲到旁边的键）给纠正后的候选。缺省开；
+    /// 敲的拼音照原样读得通时纠正只当备选，不排第一。关掉后只按敲的原样（与模糊音）读，学过的敲错也不再用。
+    pub spelling_correction: bool,
+
     /// 中文模式下整段是英文词或英文词的开头时给英文候选与补全（`hello`、`compa` → company）。关掉中文模式只出中文，英文模式照旧。
     pub english_in_chinese: bool,
 
@@ -223,6 +227,7 @@ impl Default for GeneralConfig {
             preedit: PreeditMode::default(),
             english_candidates: true,
             chinese_first: false,
+            spelling_correction: true,
             english_in_chinese: true,
             english_max_in_chinese: qingjian_core::ENGLISH_CANDIDATES_MAX,
             english_min_position: 1,

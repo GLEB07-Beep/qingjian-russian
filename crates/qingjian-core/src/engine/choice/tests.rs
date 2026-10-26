@@ -213,3 +213,77 @@ fn the_shell_is_woken_once_the_result_is_ready() {
         .expect("结果到了要叫醒壳");
     assert!(engine.poll_rescoring(), "叫醒时结果已经在通道里");
 }
+
+/// 假选词模型：像知意一样对齐，音节可以只敲了开头（`su` 对 `sui`，简拼就是这么对上的），偏爱某个文本。
+struct PrefixPrefers(&'static str);
+
+impl ChoiceModel for PrefixPrefers {
+    fn align(&self, keys: &str, syllables: &[String]) -> Option<Vec<u32>> {
+        let mut rest = keys;
+        for syllable in syllables {
+            let common = rest
+                .bytes()
+                .zip(syllable.bytes())
+                .take_while(|(a, b)| a == b)
+                .count();
+            if common == 0 {
+                return None;
+            }
+            rest = &rest[common..];
+        }
+        rest.is_empty().then(|| vec![1; syllables.len()])
+    }
+
+    fn letter_units(&self, _keys: &str) -> Vec<u32> {
+        vec![1]
+    }
+
+    fn score(&self, _context: &str, _typed: &[u32], texts: &[&str]) -> Vec<f32> {
+        texts
+            .iter()
+            .map(|t| if *t == self.0 { 100.0 } else { 0.0 })
+            .collect()
+    }
+}
+
+/// 只认几个词的语言模型：敲错边（`su` 少敲一个 i）读出的 虽然 分数压过原样的 肃然。
+struct SuranModel;
+
+impl crate::sentence::LanguageModel for SuranModel {
+    fn log_prob(&self, _previous: Option<&str>, word: &str) -> Option<f64> {
+        match word {
+            "虽然" => Some(-5.0),
+            "肃然" => Some(-14.0),
+            "然" => Some(-9.0),
+            "苏" => Some(-9.0),
+            _ => None,
+        }
+    }
+}
+
+#[test]
+fn the_choice_model_does_not_promote_a_corrected_sentence() {
+    // 原样读得通（肃然），敲错边读出的 虽然 只当第二条。知意会把它当成 `su` 是 `sui` 的简拼对齐上，
+    // 再偏爱它也不许提到第一：重排里的语言模型分与位置先验只看词常不常用（冻结回放 上屏 → 商品、这俩 → 这里）
+    let dictionary = "肃然	su ran	500
+虽然	sui ran	900000
+苏	su	5000
+然	ran	9000
+";
+    let mut engine = Engine::new(Dictionary::parse(dictionary).unwrap())
+        .with_language_model(Box::new(SuranModel));
+    engine.set_choice_model(Some(Arc::new(PrefixPrefers("虽然"))));
+    engine.set_input("suran");
+    let before: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert_eq!(before[0], "肃然", "{before:?}");
+    assert!(before.iter().any(|t| t == "虽然"), "{before:?}");
+    settle(&mut engine);
+    assert_eq!(first_texts(&engine)[0], "肃然");
+}

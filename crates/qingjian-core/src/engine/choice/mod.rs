@@ -116,7 +116,13 @@ impl Engine {
         let english = self.english_mode;
         // 英文模式只比英文补全，和敲的一样的那个词留在原位；中文模式只比中文，夹在里面的英文词、emoji 不动
         let mut whole: Vec<(usize, Vec<u32>)> = Vec::new();
+        // 敲错边读出的备选不比：知意把 `suran` 的 虽然 当成 `su` 是 `sui` 的简拼对齐上，重排里的语言模型分与位置先验
+        // 只看词常不常用，会把它顶到用户敲对的 肃然 前面（冻结回放 上屏 → 商品、这俩 → 这里 都是这么丢的）
+        let corrected = self.corrected_alternates.borrow();
         for (index, candidate) in items.iter().enumerate().take(self.choice_tier.window()) {
+            if corrected.contains(&candidate.text) {
+                continue;
+            }
             let units = match candidate.kind {
                 CandidateKind::English
                     if english && !candidate.text.eq_ignore_ascii_case(&keys) =>

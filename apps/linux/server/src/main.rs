@@ -75,6 +75,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_learning(config.general.learning);
     engine.set_chinese_first(config.general.chinese_first);
+    engine.set_spelling_correction(config.general.spelling_correction);
     engine.set_emoji_limit(usize::from(config.general.emoji.get()));
     engine.set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
     engine.set_symbol_limit(usize::from(config.general.symbols.get()));

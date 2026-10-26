@@ -14,14 +14,16 @@ impl Engine {
         let (segmentations, _) = segment_longest_prefix(keys).ok()?;
         let best = self.sentence_segmentation(&segmentations, true)?;
         let patterns = best.patterns();
+        // 与整句首选同一个规则：原样读得通就不加敲错边
+        let typos = !reads_as_typed(best);
         let path = self
-            .sentence_paths(&patterns, true, false, 1)
+            .sentence_paths(&patterns, typos, false, 1)
             .into_iter()
             .next()?;
         if path.text == gold {
             return (top != Some(gold)).then_some(sentence::Loss::Assembly);
         }
-        let loss = self.diagnose_patterns(&patterns, gold, &path.text, true);
+        let loss = self.diagnose_patterns(&patterns, gold, &path.text, true, typos);
         if !matches!(loss, sentence::Loss::Unreachable { .. }) {
             return Some(loss);
         }
@@ -31,7 +33,7 @@ impl Engine {
             .filter(|s| s.syllables != best.syllables)
             .find(|s| {
                 !matches!(
-                    self.diagnose_patterns(&s.patterns(), gold, "", false),
+                    self.diagnose_patterns(&s.patterns(), gold, "", false, true),
                     sentence::Loss::Unreachable { .. }
                 )
             });
@@ -50,9 +52,10 @@ impl Engine {
         gold: &str,
         best: &str,
         emit: bool,
+        typos: bool,
     ) -> sentence::Loss {
         let dictionaries = self.all_dictionaries();
-        let expanded = self.expand_positions(patterns, true);
+        let expanded = self.expand_positions(patterns, typos);
         let table = if emit {
             self.char_table(patterns)
         } else {
@@ -83,7 +86,7 @@ impl Engine {
         let keys = self.composition.scope();
         let (segmentations, _) = segment_longest_prefix(keys).ok()?;
         let best = self.sentence_segmentation(&segmentations, true)?;
-        self.sentence_paths(&best.patterns(), true, false, k)
+        self.sentence_paths(&best.patterns(), !reads_as_typed(best), false, k)
             .iter()
             .position(|p| p.text == gold)
     }

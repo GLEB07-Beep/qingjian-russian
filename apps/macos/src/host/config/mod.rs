@@ -25,6 +25,8 @@ impl Host {
         self.engine.set_mode_keys(config.shortcut.mode);
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine
+            .set_spelling_correction(config.general.spelling_correction);
+        self.engine
             .set_emoji_limit(usize::from(config.general.emoji.get()));
         self.engine
             .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
