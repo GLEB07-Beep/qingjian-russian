@@ -1,8 +1,13 @@
 //! 形码查询：编码按前缀查码表，没有切分、没有整句；以及与拼音的混输。
 
 use std::collections::HashSet;
+use std::time::Instant;
 
-use super::*;
+use crate::engine::{Learner, MAX_CANDIDATES, choice_key};
+use crate::ranking::Scored;
+use crate::{
+    Candidate, CandidateKind, CandidateList, Engine, ParseError, Query, Timings, ranking, sentence,
+};
 
 impl Engine {
     /// 形码方案（五笔）的候选：编码打全的词排在同前缀的更长编码词前面，其余按词频与上下文。

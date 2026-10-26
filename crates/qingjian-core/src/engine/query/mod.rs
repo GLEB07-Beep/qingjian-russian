@@ -1,10 +1,15 @@
 //! 候选生成：按输入模式分派查询。各模式的实现在兄弟文件里，共用的候选构造留在这里。
 
-use super::*;
+use std::time::Instant;
+
+use converting::trim_sentence_alternates;
+
+use crate::engine::is_raw;
+use crate::ranking::Scored;
+use crate::{Candidate, CandidateKind, Engine, ParseError};
 
 mod code;
 mod converting;
-use converting::trim_sentence_alternates;
 mod diagnosing;
 mod english_tail;
 mod generating;

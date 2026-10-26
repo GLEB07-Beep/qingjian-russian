@@ -1,7 +1,8 @@
 //! 整句没出对时，正确答案丢在哪一步（[`sentence::Loss`]）：给 CLI 评测归因用，输入路径不调。
 
-use super::*;
 use crate::engine::choice::char_emission;
+use crate::engine::{Learner, reads_as_typed, segment_longest_prefix};
+use crate::{Engine, sentence};
 
 /// 换切分时最多试几种。
 const SEGMENTATIONS_TRIED: usize = 16;

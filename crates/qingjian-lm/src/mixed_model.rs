@@ -2,7 +2,7 @@
 
 use qingjian_core::sentence::LanguageModel;
 
-/// 整句词图里三元模型（`zh.ngram`）对二元模型（`lm.qj`）的权重 λ，在开发集与冻结回放上定的。
+/// 整句词图里三元模型（`zh.ngram`）对二元模型（`lm.qj`）的权重 λ，取值见 `docs/notes/crate-notes.md`（qingjian-lm 一节）。
 pub const TRIGRAM_WEIGHT: f64 = 0.5;
 
 pub struct MixedModel {

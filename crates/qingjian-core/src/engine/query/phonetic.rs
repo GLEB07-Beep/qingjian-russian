@@ -1,8 +1,20 @@
 //! 拼音侧的候选生成：切分、拼写纠错、词级查找与排序，再补上整句、英文、快捷与 emoji 候选。
 
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
-use super::*;
+use qingjian_dictionary::Match;
+
+use crate::engine::query::chinese_candidate;
+use crate::engine::{
+    Learner, MAX_CANDIDATES, abbreviated_count, choice_key, pattern_key, segment_longest_prefix,
+};
+use crate::ranking::Scored;
+use crate::{
+    Candidate, CandidateList, Engine, ParseError, Query, Segmentation, Timings, correction, parser,
+    ranking,
+};
 
 impl Engine {
     /// 拼音侧（全拼 / 双拼 / 注音）的候选生成：整段作用域是一串读音。

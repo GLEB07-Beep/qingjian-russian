@@ -48,7 +48,7 @@ const PHRASE_WEIGHT: f64 = 1.0;
 const RANK_WEIGHT: f64 = 1.0;
 
 /// 整句候选的语言模型分与位置先验再乘这个数：整句的先后本来就是词图按语言模型排的，两项照算等于把同一个判断数了三遍，
-/// 知意对、语言模型错的那些句子（维基 / 危机）被压回去。开发集上离线模拟两项各 0.25～1 扫过，0.5 最好（六组合计 +5.6 点）。
+/// 知意对、语言模型错的那些句子（维基 / 危机）被压回去。取值见 `docs/notes/crate-notes.md`。
 const SENTENCE_TERMS_SCALE: f64 = 0.5;
 
 /// 英文位置先验的权重（`laya.english_rank_prior_weight`）。
@@ -117,7 +117,7 @@ impl Engine {
         // 英文模式只比英文补全，和敲的一样的那个词留在原位；中文模式只比中文，夹在里面的英文词、emoji 不动
         let mut whole: Vec<(usize, Vec<u32>)> = Vec::new();
         // 敲错边读出的备选不比：知意把 `suran` 的 虽然 当成 `su` 是 `sui` 的简拼对齐上，重排里的语言模型分与位置先验
-        // 只看词常不常用，会把它顶到用户敲对的 肃然 前面（冻结回放 上屏 → 商品、这俩 → 这里 都是这么丢的）
+        // 只看词常不常用，会把它顶到用户敲对的 肃然 前面（上屏 → 商品、这俩 → 这里 都是这么丢的）
         let corrected = self.corrected_alternates.borrow();
         for (index, candidate) in items.iter().enumerate().take(self.choice_tier.window()) {
             if corrected.contains(&candidate.text) {

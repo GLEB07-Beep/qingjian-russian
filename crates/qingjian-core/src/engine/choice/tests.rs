@@ -264,7 +264,7 @@ impl crate::sentence::LanguageModel for SuranModel {
 #[test]
 fn the_choice_model_does_not_promote_a_corrected_sentence() {
     // 原样读得通（肃然），敲错边读出的 虽然 只当第二条。知意会把它当成 `su` 是 `sui` 的简拼对齐上，
-    // 再偏爱它也不许提到第一：重排里的语言模型分与位置先验只看词常不常用（冻结回放 上屏 → 商品、这俩 → 这里）
+    // 再偏爱它也不许提到第一：重排里的语言模型分与位置先验只看词常不常用（上屏 → 商品、这俩 → 这里）
     let dictionary = "肃然	su ran	500
 虽然	sui ran	900000
 苏	su	5000

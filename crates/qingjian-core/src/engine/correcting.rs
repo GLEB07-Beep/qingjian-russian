@@ -1,6 +1,7 @@
 //! 整段拼写纠错：找一处编辑的纠正并按个人敲错表打折。
 
-use super::*;
+use crate::engine::{Learner, reads_as_typed, segment_longest_prefix};
+use crate::{Correction, Engine, correction, parser};
 
 impl Engine {
     /// 这段作用域生效的拼写纠正（带缓存）：拼音不像话、用户没对它回车原样上屏过、

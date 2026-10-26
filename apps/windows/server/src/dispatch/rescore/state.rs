@@ -4,8 +4,8 @@
 
 use std::time::{Duration, Instant};
 
-/// 停键多久才请求重排。知意出字、打分两轮中位约 15 + 23 ms，再加两次重查：防抖取 macOS 壳的 80 ms 时停键后 150 ms 上下
-/// 才换好首选；取 30 ms 时连着敲（键间隔百来毫秒）两轮也在下一键前算完，不排队，停键后中位约 85 ms。
+/// 停键多久才请求重排：要短到停键后很快换好首选，又要让连着敲（键间隔百来毫秒）时出字、打分两轮在下一键前算完、不排队。
+/// 各段耗时与取值见 `docs/notes/crate-notes.md`（Windows Server 一节）。
 /// 后台线程排队时只算最新一条，敲得再快也不会越积越多。
 pub(super) const DEBOUNCE: Duration = Duration::from_millis(30);
 

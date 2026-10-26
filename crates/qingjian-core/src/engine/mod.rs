@@ -39,9 +39,9 @@ mod voice;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
-use qingjian_dictionary::{AuxCodeLookup, Dictionary, Match, WordList};
+use qingjian_dictionary::{AuxCodeLookup, Dictionary, WordList};
 
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
@@ -72,22 +72,17 @@ pub use vocabulary::{
     Encounter, FRESH_UNTIL, LevelCount, NoVocabularyTracker, VocabularySummary, VocabularyTracker,
 };
 
-use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
+use crate::candidate::Language;
 use crate::code_scheme::CodeScheme;
 use crate::composition::Composition;
-use crate::correction::{self, Correction, TypoCosts, typo};
+use crate::correction::{Correction, TypoCosts};
 use crate::emoji::EmojiTable;
-use crate::english;
-use crate::fuzzy::{Expanded, FuzzyRules};
+use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;
 use crate::panel::{NoPanelHistory, PanelHistory, SymbolPanel};
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
-use crate::ranking::{self, Scored};
-use crate::sentence::{
-    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer,
-};
-use crate::shortcut;
+use crate::sentence::{self, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer};
 use crate::shuangpin::Layout;
 use crate::traditional::Traditional;
 

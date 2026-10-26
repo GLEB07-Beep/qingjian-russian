@@ -6,14 +6,16 @@
 //! 一次送去后台，[`Engine::poll_rescoring`] 收到结果后再查一次，这时全部路径的分都在缓存里，排序自然换成重排后的。
 //! 按键回调永远不等模型：先按词级模型出候选，模型的意见晚几十毫秒到。
 
+use crate::Engine;
+use crate::engine::take_last_chars;
+use crate::sentence::Conversion;
+
 mod cache;
 mod wake;
 mod worker;
 
 #[cfg(test)]
 mod tests;
-
-use super::*;
 
 pub(crate) use cache::NeuralCache;
 pub use wake::Wake;

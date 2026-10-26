@@ -310,7 +310,7 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 实现 Core 的 `sentence::PhraseModel`，选词重排里给整段候选打 ln P(候选 | 上文)（上文取最后一行末 12 字，按字束搜索切词，束宽 8、词最长 8 字），
 代替二元模型逐词累加的那一项（`engine/choice` 的 `PHRASE_WEIGHT`）；
 也实现 `LanguageModel`（`log_prob_trigram` 带前前词），由 `MixedModel` 按概率与二元模型插值后当整句词图的语言模型（三元权重 `TRIGRAM_WEIGHT`，
-一边不认识的词只用另一边）。只用三元时无上文的新闻掉分（不认识的专名、技术词被拆错），插值后六个开发集都涨：devA 63.5→65.6、项目文档 40.8→46.2、新闻 74.1→76.6。读取器按文件头注释的格式自己实现（知意的代码是 GPL-3.0-only，不搬）。
+一边不认识的词只用另一边）。只用三元时无上文的新闻掉分（不认识的专名、技术词被拆错），插值后六个开发集都涨：devA 63.5→65.6、项目文档 40.8→46.2、新闻 74.1→76.6。`TRIGRAM_WEIGHT` = 0.5：0.3 时冻结回放整句略好（79.1%）但开发集合计略低，0.7 时新闻掉分。读取器按文件头注释的格式自己实现（知意的代码是 GPL-3.0-only，不搬）。
 模型 79 MB，不进仓库也不随包，放 `data/models/zhiyi-ngram/zh.ngram`；许可 LGPL-2.1-or-later（底子是有墨输入法 / libime 的模型，混了 FineWeb-2、
 Common Crawl、CSL、SkyPile、C4 的统计），可按 GPL-3.0-or-later 使用；再分发前要按知意的 NOTICE 列全来源并跟作者确认。CLI 用 `--ngram`，Windows Server 读用户目录的 `models/zhiyi-ngram/zh.ngram`。
 `TrigramModel::vocabulary` 列词表与一元概率，`qingjian_dictionary::supplement` 拿它补出词库没收的词（摸鱼、老梗、七神）：已有的、能切成已有多字词的（进行分析）、非汉字的不补；读音按参照词库里每个字的读音统计猜（词里的读音权重 ×4），次要读音占比 ≥ 0.25 另收、组合至多 4 种；词频按与主词库重合的词拟 ln 词频 = a + b·log10 P（实测约 9.6 万条）。结果挂在 `Engine::set_model_words`（补充词库，单独一格，附加词库重载不动它）。只在本机生成，不分发派生数据：Windows Server 缓存到模型旁的 `zh.words.qj`（`qingjian_platform::model_words`，戳 = 规则版本 + 模型与主词库的大小 / 修改时间，第一次约 1.1 s），CLI 每次在内存里生成（`--no-ngram-words` 关掉）。社区开发集首选 74.7% → 75.0%、首页 +0.43，无上文首页 +0.43，冻结回放整句 +3；CLI 查询 95 分位 209 → 242 ms（中位 +3 ms）。B 站游戏黑话（蜂医、冥古龙）模型里也没有，补不到。
