@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use super::worker::ChoiceWorker;
 use super::{CharTable, ChoiceModel, ChoiceRequest, ComposeRequest};
+use crate::engine::rescoring::WakeSlot;
 
 /// 字分布最多缓存几张：打平的切分一次查询要比两三种，回退删字时前一段输入的表还用得上。
 const TABLES: usize = 8;
@@ -28,9 +29,9 @@ pub(crate) struct ChoiceRanker {
 }
 
 impl ChoiceRanker {
-    pub fn new(model: Arc<dyn ChoiceModel>) -> Self {
+    pub fn new(model: Arc<dyn ChoiceModel>, wake: WakeSlot) -> Self {
         Self {
-            worker: ChoiceWorker::spawn(model.clone()),
+            worker: ChoiceWorker::spawn(model.clone(), wake),
             model,
             scored: RefCell::new(None),
             wanted: RefCell::new(None),

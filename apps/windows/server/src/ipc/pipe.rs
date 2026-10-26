@@ -56,6 +56,10 @@ pub fn serve_pipe(
         }
         Err(error) => return Err(error),
     };
+    let waker = sender.clone();
+    router.set_rescoring_wake(std::sync::Arc::new(move || {
+        let _ = waker.send(Work::Wake);
+    }));
     thread::spawn(move || accept_loop(&pipe, first, sender));
     tracing::info!(pipe = name, "命名管道监听中");
     // 按 Router 的节拍来 tick：在等本地整句模型就几十毫秒一次，否则一秒看一次配置文件。
@@ -76,6 +80,7 @@ pub fn serve_pipe(
             Ok(Work::Status(event)) => router.handle_status_event(event),
             Ok(Work::Click(mouse)) => router.handle_candidate_mouse(mouse),
             Ok(Work::Panel(hit)) => router.handle_panel_mouse(hit),
+            Ok(Work::Wake) => router.tick(),
             Err(RecvTimeoutError::Timeout) => continue,
             Err(RecvTimeoutError::Disconnected) => break,
         }

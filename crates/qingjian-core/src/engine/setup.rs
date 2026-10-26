@@ -367,10 +367,17 @@ impl Engine {
         self
     }
 
+    /// 后台模型（异步重打分、选词模型）每交一次结果就调一下 `wake`：壳拿它叫醒自己的消息循环，不用等下一次轮询。
+    /// 模型先接上、后给回调也行。
+    pub fn set_rescoring_wake(&self, wake: Option<super::Wake>) {
+        self.wake.set(wake);
+    }
+
     /// 运行时换 / 卸异步重打分器（壳里模型在后台加载完才接上，配置关掉就卸）。
     pub fn set_async_sentence_scorer(&mut self, scorer: Option<Box<dyn SentenceScorer>>) {
         self.sentence_scorer = None;
-        self.rescorer = scorer.map(super::rescoring::RescoreWorker::spawn);
+        let wake = self.wake.clone();
+        self.rescorer = scorer.map(|scorer| super::rescoring::RescoreWorker::spawn(scorer, wake));
         *self.neural_cache.borrow_mut() = super::rescoring::NeuralCache::default();
         self.forget_span_cache();
     }

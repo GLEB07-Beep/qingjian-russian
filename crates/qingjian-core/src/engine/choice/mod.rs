@@ -79,7 +79,8 @@ const UNKNOWN_LOG_PROB: f64 = -18.5;
 impl Engine {
     /// 接上或卸掉选词模型（后台线程随之起停）。
     pub fn set_choice_model(&mut self, model: Option<Arc<dyn ChoiceModel>>) {
-        self.choice = model.map(ChoiceRanker::new);
+        let wake = self.wake.clone();
+        self.choice = model.map(|model| ChoiceRanker::new(model, wake));
     }
 
     /// 接上或卸掉短语级语言模型：选词重排里整段候选的语言模型分改由它给（[`PHRASE_WEIGHT`] 加权）。

@@ -8,6 +8,7 @@ use std::thread::JoinHandle;
 use super::finished::Finished;
 use super::job::Job;
 use super::{ChoiceModel, ChoiceRequest, ComposeRequest};
+use crate::engine::rescoring::WakeSlot;
 
 /// 选词模型的后台线程：一页候选要算几十毫秒，不能放在按键回调里。排队时打分与出字各只算最新的一条。
 pub(crate) struct ChoiceWorker {
@@ -20,7 +21,7 @@ pub(crate) struct ChoiceWorker {
 }
 
 impl ChoiceWorker {
-    pub fn spawn(model: Arc<dyn ChoiceModel>) -> Self {
+    pub fn spawn(model: Arc<dyn ChoiceModel>, wake: WakeSlot) -> Self {
         let (jobs, job_rx) = channel::<(u64, Job)>();
         let (result_tx, results) = channel::<(u64, Finished)>();
         let handle = std::thread::Builder::new()
@@ -50,6 +51,7 @@ impl ChoiceWorker {
                     {
                         break;
                     }
+                    wake.ring();
                 }
             })
             .ok();

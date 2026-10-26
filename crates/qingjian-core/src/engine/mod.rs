@@ -63,6 +63,7 @@ pub use prediction::{
 
 pub use query::Query;
 pub use raw::RawPreedit;
+pub use rescoring::Wake;
 pub use session::EngineSession;
 pub use statistics::{BOOKS, Book, NoUsageMeter, Usage, UsageMeter, UsageSummary, book_scale};
 pub use timings::Timings;
@@ -167,6 +168,9 @@ pub struct Engine {
 
     /// 「前文 + 整句文本 → 神经分」缓存，同步与异步打分共用。
     neural_cache: std::cell::RefCell<rescoring::NeuralCache>,
+
+    /// 后台模型交结果时叫醒壳（[`Engine::set_rescoring_wake`]），两个后台线程共用。
+    wake: rescoring::WakeSlot,
 
     /// 选词模型（试验）：候选窗前几条交给它重排一次，见 [`choice`]。
     choice: Option<choice::ChoiceRanker>,
@@ -492,6 +496,7 @@ impl Engine {
             language_model: Box::new(NoLanguageModel),
             sentence_scorer: None,
             rescorer: None,
+            wake: rescoring::WakeSlot::default(),
             neural_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
             choice: None,
             choice_tier: choice::ChoiceTier::default(),

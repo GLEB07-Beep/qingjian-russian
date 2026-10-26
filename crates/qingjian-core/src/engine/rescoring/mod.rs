@@ -7,6 +7,7 @@
 //! 按键回调永远不等模型：先按词级模型出候选，模型的意见晚几十毫秒到。
 
 mod cache;
+mod wake;
 mod worker;
 
 #[cfg(test)]
@@ -15,6 +16,8 @@ mod tests;
 use super::*;
 
 pub(crate) use cache::NeuralCache;
+pub use wake::Wake;
+pub(crate) use wake::WakeSlot;
 pub(crate) use worker::RescoreWorker;
 
 /// 直接生成整句时的 beam 宽度。5 是 2026-09-24 在冻结集上量的：beam 5 首选 51.9%、前五 73.5%，

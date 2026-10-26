@@ -192,3 +192,24 @@ fn the_model_picks_from_more_sentences_than_the_list_shows() {
     assert_eq!(after[0], "是是时时", "{after:?}");
     assert_eq!(first_texts(&engine)[0], "是是时时");
 }
+
+#[test]
+fn the_shell_is_woken_once_the_result_is_ready() {
+    let mut engine =
+        Engine::new(Dictionary::parse("开发\tkai fa\t9000\n开罚\tkai fa\t10\n").unwrap());
+    // 模型后接上、回调先给，或者反过来，都要叫得到
+    let (sender, woken) = std::sync::mpsc::channel();
+    engine.set_rescoring_wake(Some(Arc::new(move || {
+        let _ = sender.send(());
+    })));
+    engine.set_choice_model(Some(Arc::new(Prefers("开罚"))));
+    for c in "kaifa".chars() {
+        engine.push(c);
+    }
+    engine.query().unwrap();
+    assert!(engine.request_rescoring());
+    woken
+        .recv_timeout(Duration::from_secs(5))
+        .expect("结果到了要叫醒壳");
+    assert!(engine.poll_rescoring(), "叫醒时结果已经在通道里");
+}
