@@ -634,11 +634,22 @@ impl Engine {
         &self.extra_dictionaries
     }
 
+    /// 挂上从三元模型词表补出的词（`qingjian_dictionary::supplement`），`None` 摘掉。格子缓存随之作废。
+    pub fn set_model_words(&mut self, words: Option<Dictionary>) {
+        self.model_words = words;
+        self.forget_span_cache();
+    }
+
+    pub fn model_words(&self) -> Option<&Dictionary> {
+        self.model_words.as_ref()
+    }
+
     /// 查词用的全部词库：主词库、附加词库、内置的符号与 emoji 名字、用户词。
     pub(super) fn all_dictionaries(&self) -> Vec<&Dictionary> {
         let mut all = Vec::with_capacity(self.extra_dictionaries.len() + 2);
         all.push(&self.dictionary);
         all.extend(self.extra_dictionaries.iter());
+        all.extend(self.model_words.as_ref());
         all.extend(self.companion_words);
         if let Some(user) = self.learner.user_words() {
             all.push(user);

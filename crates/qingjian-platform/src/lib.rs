@@ -12,6 +12,7 @@ pub mod dirs;
 mod error;
 pub mod extra_dictionaries;
 pub mod logs;
+pub mod model_words;
 pub mod protocol;
 pub mod resources;
 mod scheme_meta;

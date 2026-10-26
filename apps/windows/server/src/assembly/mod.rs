@@ -12,7 +12,7 @@ use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, PanelUsage, UsageStats, VocabularyBook};
 use qingjian_lm::{MixedModel, TRIGRAM_WEIGHT, TrigramModel};
 use qingjian_platform::code_tables::AuxCodeSources;
-use qingjian_platform::{Config, extra_dictionaries};
+use qingjian_platform::{Config, extra_dictionaries, model_words};
 use qingjian_translate::{Glossary, LayeredTranslator, LevelTable, PersonalGlossary};
 
 use crate::error::ServerError;
@@ -99,6 +99,10 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
     }
     match (spec.user_dir.as_deref().and_then(load_trigram), bigram) {
         (Some((phrase, lattice)), bigram) => {
+            if let Some(dir) = &spec.user_dir {
+                let words = load_model_words(&engine, &phrase, &dir.join(ZHIYI_NGRAM), &spec.dict);
+                engine.set_model_words(words);
+            }
             engine.set_phrase_model(Some(Arc::new(phrase)));
             engine = engine.with_language_model(match bigram {
                 Some(bigram) => Box::new(MixedModel::new(
@@ -137,6 +141,24 @@ fn load_trigram(user_dir: &Path) -> Option<(TrigramModel, TrigramModel)> {
             None
         }
     }
+}
+
+/// 三元模型词表里词库没有的词（摸鱼、老梗），作补充词库：缓存在模型旁边，模型或主词库换了才重建（第一次约一秒）。
+/// 判断哪些词已有时参照主词库与已装的附加词库；戳只看模型与主词库：导入一本词库不该让缓存作废。
+fn load_model_words(
+    engine: &Engine,
+    model: &TrigramModel,
+    model_path: &Path,
+    dict: &Path,
+) -> Option<Dictionary> {
+    let stamp = model_words::stamp(&[model_path, dict]);
+    model_words::load(&model_words::cache_path(model_path), &stamp, || {
+        let mut references = vec![engine.dictionary()];
+        references.extend(engine.extra_dictionaries());
+        qingjian_dictionary::supplement(model.vocabulary(), &references)
+            .inspect_err(|error| tracing::warn!(%error, "三元模型词表补词失败"))
+            .ok()
+    })
 }
 
 /// 用户导入词库目录 `dicts/`，不存在则创建；建不了当没有。

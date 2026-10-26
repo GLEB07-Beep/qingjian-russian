@@ -384,6 +384,19 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
             load_ms = started.elapsed().as_millis(),
             "三元模型已加载"
         );
+        if !args.no_ngram_words {
+            let started = Instant::now();
+            let mut references = vec![engine.dictionary()];
+            references.extend(engine.extra_dictionaries());
+            let mut words = qingjian_dictionary::supplement(model.vocabulary(), &references)?;
+            tracing::info!(
+                entries = words.len(),
+                build_ms = started.elapsed().as_millis(),
+                "三元模型词表补词已生成"
+            );
+            words.set_secondary(true);
+            engine.set_model_words(Some(words));
+        }
         engine.set_phrase_model(Some(Arc::new(model)));
         // 整句词图另映射一份（同一文件，页面共用）：与二元模型插值
         let trigram = Box::new(qingjian_lm::TrigramModel::open(path)?);

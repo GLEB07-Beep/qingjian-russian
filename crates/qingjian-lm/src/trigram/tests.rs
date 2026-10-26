@@ -196,3 +196,12 @@ fn as_a_language_model_uses_the_earlier_word_and_ignores_unknown_history() {
     ));
     assert_eq!(model.log_prob(None, "没有这个词"), None);
 }
+
+#[test]
+fn vocabulary_lists_every_word_with_its_unigram() {
+    let (_file, model) = model("vocabulary");
+    let words: Vec<(&str, f64)> = model.vocabulary().collect();
+    assert_eq!(words.len(), 6);
+    let (_, log10) = words.iter().find(|(text, _)| *text == "这次").unwrap();
+    assert!((log10 + 3.5).abs() < 1e-3, "{log10}");
+}

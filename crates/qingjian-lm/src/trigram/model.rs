@@ -112,6 +112,14 @@ impl TrigramModel {
         self.map.len()
     }
 
+    /// 词表里的每个词与它的一元 log10 P，按字节序。`<unk>`、`<s>` 这类记号也在里面，调用方自己滤。
+    pub fn vocabulary(&self) -> impl Iterator<Item = (&str, f64)> + '_ {
+        (0..self.n1).filter_map(|i| {
+            let text = std::str::from_utf8(self.word_bytes(i)).ok()?;
+            Some((text, self.unigram(i as u32)))
+        })
+    }
+
     pub(super) fn unknown(&self) -> u32 {
         self.unknown
     }

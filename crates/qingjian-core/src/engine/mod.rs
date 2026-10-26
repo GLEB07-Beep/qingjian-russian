@@ -107,6 +107,9 @@ pub struct Engine {
     /// 走词频兜底）。壳按用户目录 `dicts/` 与配置 `[dictionaries]` 装配。
     extra_dictionaries: Vec<Dictionary>,
 
+    /// 从三元模型词表补出的词（补充词库），壳在接上三元模型时装配。单放一格：附加词库随导入 / 开关整个换掉，它不跟着换。
+    model_words: Option<Dictionary>,
+
     /// 内置的符号、emoji 名字（尖括号、笑死），带上 emoji 表时启用：词库里没有它们，不收就打不出这个词、也就配不上符号。
     companion_words: Option<&'static Dictionary>,
 
@@ -481,6 +484,7 @@ impl Engine {
         Self {
             dictionary,
             extra_dictionaries: Vec::new(),
+            model_words: None,
             companion_words: None,
             translator: Box::new(NoTranslator),
             english_translator: Box::new(NoTranslator),

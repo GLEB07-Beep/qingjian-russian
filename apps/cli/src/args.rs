@@ -181,6 +181,11 @@ pub struct Args {
     #[arg(long)]
     pub ngram: Option<PathBuf>,
 
+    /// 不从 `--ngram` 的词表补词（缺省补：词库没有的词按 `qingjian_dictionary::supplement` 在内存里生成，与 Windows Server 一样），
+    /// 前后对比用
+    #[arg(long, requires = "ngram")]
+    pub no_ngram_words: bool,
+
     /// 知意的档位：saver / balanced / accurate，与配置 `[model] zhiyi_tier` 同义
     #[arg(long, default_value = "balanced", value_parser = parse_zhiyi_tier)]
     pub zhiyi_tier: ZhiyiTier,
