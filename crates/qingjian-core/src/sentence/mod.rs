@@ -38,7 +38,7 @@ pub use phrase_model::PhraseModel;
 pub use pieces::text_pieces;
 pub use scorer::SentenceScorer;
 pub use sentence_word::SentenceWord;
-pub use span::{MAX_SPAN_CACHE_ENTRIES, SpanCache, SpanWord};
+pub use span::{MAX_SPAN_CACHE_ENTRIES, SpanCache, SpanWord, kept_hits};
 pub(crate) use text_segment::is_han;
 pub use text_segment::{MAX_TEXT_WORD_CHARS, segment_text};
 pub use user_ngram::UserNgram;
@@ -77,6 +77,13 @@ pub const SPAN_CANDIDATES: usize = 6;
 /// 有简拼位置的格子最多留几个词：`h` 下有 和 / 好 / 会 / 还 / 很 …… 几十个常用字，
 /// 只留六个会把句子里要的那个挤掉，多留一些让语言模型去挑。
 pub const ABBREVIATED_SPAN_CANDIDATES: usize = 20;
+
+/// 按词频排在格子名额之后、出字分又比留下的都高的词，再多收几个：剪枝丢的正确词九成是单字，
+/// 词频排第 7～15（霸 / 截 / 键），选词模型按上文却很看好它们。没有模型时出字分恒 0，一个也不收。
+pub const EMITTED_SPAN_EXTRAS: usize = 3;
+
+/// 找这几个词时往名额后面看多远（按词频）。
+pub const EMITTED_SPAN_POOL: usize = 24;
 
 /// 注音声调代价（[`crate::zhuyin::tone::cost`]）每一点扣的分：次要读音 / 表里没有的字词频减半，
 /// 对不上声调的（代价 16）扣到几乎不进路径；格子选词也按它打折，ㄕ 一声的 师 才挤得进 是 时 事 前面。

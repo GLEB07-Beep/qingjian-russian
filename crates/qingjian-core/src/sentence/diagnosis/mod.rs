@@ -11,6 +11,7 @@ use qingjian_dictionary::{Dictionary, SyllablePattern};
 pub use loss::Loss;
 pub use parts::Parts;
 
+use super::kept_hits;
 use super::viterbi::{span_candidates, span_limit};
 use super::{
     Context, LanguageModel, MAX_WORD_SYLLABLES, Personal, fallback_log_prob, transition_log_prob,
@@ -137,7 +138,14 @@ fn align(
                     tones.get(start..end).unwrap_or(&[]),
                     usize::MAX,
                 );
-                (end, span_limit(span), hits)
+                let limit = span_limit(span);
+                // 名额外按出字分收进来的词也算在格子里：名次记成名额以内
+                let kept: std::collections::HashSet<usize> =
+                    kept_hits(&hits, limit, start, emission)
+                        .into_iter()
+                        .map(|(rank, _)| rank)
+                        .collect();
+                (end, limit, hits, kept)
             })
             .collect();
         for key in keys {
@@ -146,9 +154,14 @@ fn align(
             let Some(here) = states.remove(&key) else {
                 continue;
             };
-            for (end, limit, hits) in &spans {
+            for (end, limit, hits, kept) in &spans {
                 let (end, limit) = (*end, *limit);
-                for (rank, hit) in hits.iter().enumerate() {
+                for (index, hit) in hits.iter().enumerate() {
+                    let rank = if kept.contains(&index) {
+                        index.min(limit - 1)
+                    } else {
+                        index
+                    };
                     let length = hit.text.chars().count();
                     if offset + length > chars.len()
                         || !hit
