@@ -4,6 +4,9 @@ use super::*;
 use qingjian_core::candidate::arrows::{self, Arrow, ArrowAction};
 use qingjian_platform::HighlightKeys;
 
+/// 拼音只在候选窗口显示时，组句中交给应用的 marked text。
+const HIDDEN_MARKED_TEXT: &str = "\u{200B}";
+
 impl QingjianInputController {
     /// 按当前缓冲区重新查候选、更新 marked text，回到第一页并重画候选窗口。
     pub(super) fn refresh(&self, client: TextClient<'_>) {
@@ -57,11 +60,14 @@ impl QingjianInputController {
         }) else {
             return;
         };
-        // 配置成只在候选窗口显示拼音时，应用里不放 marked text（光标位置仍按插入点取）
+        // 配置成只在候选窗口显示拼音时，组句中放一个零宽空格当 marked text：微信 4.x 这类应用看不到 marked text
+        // 就当输入法没在组句，自己再把字母、退格处理一遍（#815 #816）
         if inline {
             client.set_marked_text(&marked, cursor);
-        } else {
+        } else if marked.is_empty() {
             client.set_marked_text("", 0);
+        } else {
+            client.set_marked_text(HIDDEN_MARKED_TEXT, 0);
         }
         // 先发联想再画：发出去就留好云端槽位，画出来的第一帧本地候选就已经在最终位置
         if !marked.is_empty() {
