@@ -59,7 +59,7 @@ use mode_osd::ModeOsd;
 use mode_switch::ModeSwitch;
 use model::RescoreMonitor;
 pub use presenting::TranslationJob;
-use presenting::{KeyHintState, Notice};
+use presenting::{CandidateTranslation, KeyHintState, Notice};
 pub use session::Session;
 
 pub struct Host {
@@ -176,6 +176,9 @@ pub struct Host {
 
     /// 在飞的按需联想请求序号：结果到了排在第一页最前面，自动联想的照旧补在末尾。
     manual_prediction: Option<u64>,
+
+    /// 用户从候选菜单发起、正在等待的模型译文生成。
+    candidate_translation: Option<CandidateTranslation>,
 
     /// 进行中的「翻译选中文字」；有它时候选窗口显示的是译文（或「翻译中…」），按键先归它处理。
     pub translation: Option<TranslationJob>,
