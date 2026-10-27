@@ -62,22 +62,22 @@ impl Engine {
         } else {
             None
         };
-        sentence::diagnose(
+        let emission = |start: usize, text: &str, syllables: &[String]| {
+            table.as_deref().map_or(0.0, |table| {
+                char_emission(table, patterns, start, text, syllables)
+            })
+        };
+        // 格子名额与真搜索一致（回放调参改了 `search_limits` 时诊断也跟着）
+        let input = sentence::SearchInput::new(
             &dictionaries,
-            &expanded.positions(),
-            gold,
             &*self.language_model,
             self.personal(),
             |text| self.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),
-            &[],
-            &|start, text, syllables| {
-                table.as_deref().map_or(0.0, |table| {
-                    char_emission(table, patterns, start, text, syllables)
-                })
-            },
-            best,
         )
+        .with_emission(&emission)
+        .with_limits(self.search_limits);
+        sentence::diagnose(&input, &expanded.positions(), gold, best)
     }
 }
 

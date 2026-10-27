@@ -330,3 +330,6 @@ impl Router {
         self.engine.set_aux_codes(tables);
     }
 }
+
+#[cfg(test)]
+mod traditional_tests;

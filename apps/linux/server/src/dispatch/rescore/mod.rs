@@ -180,6 +180,7 @@ impl Router {
             cursor,
             layout,
             spelling,
+            ..
         }) = self.composed.as_mut()
         else {
             return;

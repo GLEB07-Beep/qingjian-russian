@@ -2,6 +2,7 @@
 
 mod aux_code;
 mod candidate_menu;
+mod chaizi;
 mod cloud;
 mod cloud_trigger;
 mod code;
@@ -12,11 +13,12 @@ mod email;
 mod emoji;
 mod english;
 mod general;
-mod generation;
+mod generated;
 mod held;
 mod learning;
 mod lookup;
 mod nine_key;
+mod p2c_placement;
 mod panel;
 mod polyphone;
 mod privacy;

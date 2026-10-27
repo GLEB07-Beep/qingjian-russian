@@ -196,6 +196,20 @@ fn traditional_variant_wins_over_the_legacy_key() {
         TraditionalVariant::Off
     );
     assert_eq!(parse("traditional = \"off\""), TraditionalVariant::Off);
+    let last = |text: &str| {
+        toml::from_str::<GeneralConfig>(text)
+            .unwrap()
+            .last_traditional()
+    };
+    assert_eq!(last(""), TraditionalVariant::Taiwan);
+    assert_eq!(
+        last("last_traditional = \"off\""),
+        TraditionalVariant::Taiwan
+    );
+    assert_eq!(
+        last("last_traditional = \"hongkong\""),
+        TraditionalVariant::Hongkong
+    );
     assert_eq!(
         parse("traditional = \"hongkong\""),
         TraditionalVariant::Hongkong

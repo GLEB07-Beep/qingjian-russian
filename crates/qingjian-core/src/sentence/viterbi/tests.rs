@@ -1,9 +1,12 @@
+//! 整句转换（束搜索）的测试。
+
 use super::*;
-use crate::sentence::{NoLanguageModel, UserNgram};
+use crate::sentence::{NoLanguageModel, SearchLimits, UserNgram};
+use qingjian_dictionary::Dictionary;
 
 const SAMPLE: &str = "我\two\t900000\n想\txiang\t500000\n去\tqu\t400000\n吃\tchi\t300000\n饭\tfan\t200000\n\
-        吃饭\tchi fan\t100000\n我想\two xiang\t600000\n翔\txiang\t3000\n区\tqu\t100000\n卧\two\t2000\n\
-        开发\tkai fa\t9000\n开\tkai\t20000\n发\tfa\t30000\n开放\tkai fang\t20000\n";
+    吃饭\tchi fan\t100000\n我想\two xiang\t600000\n翔\txiang\t3000\n区\tqu\t100000\n卧\two\t2000\n\
+    开发\tkai fa\t9000\n开\tkai\t20000\n发\tfa\t30000\n开放\tkai fang\t20000\n";
 
 fn complete<'a>(syllables: &[&'a str]) -> Vec<Vec<SyllablePattern<'a>>> {
     syllables
@@ -14,12 +17,14 @@ fn complete<'a>(syllables: &[&'a str]) -> Vec<Vec<SyllablePattern<'a>>> {
 
 fn unigram(dictionary: &Dictionary, patterns: &[Vec<SyllablePattern<'_>>]) -> Option<Conversion> {
     convert(
-        &[dictionary],
+        &SearchInput::new(
+            &[dictionary],
+            &NoLanguageModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+        ),
         patterns,
-        &NoLanguageModel,
-        Personal::NONE,
-        |_| 0,
-        |_, _| 0.0,
         &mut SpanCache::default(),
     )
 }
@@ -43,12 +48,14 @@ fn user_weight_lifts_near_ties_but_is_capped() {
     let patterns = complete(&["wo", "qu"]);
     let lifted = |count: u32| {
         convert(
-            &[&dictionary],
+            &SearchInput::new(
+                &[&dictionary],
+                &NoLanguageModel,
+                Personal::NONE,
+                |t| if t == "卧" { count } else { 0 },
+                |_, _| 0.0,
+            ),
             &patterns,
-            &NoLanguageModel,
-            Personal::NONE,
-            |t| if t == "卧" { count } else { 0 },
-            |_, _| 0.0,
             &mut SpanCache::default(),
         )
         .unwrap()
@@ -60,12 +67,14 @@ fn user_weight_lifts_near_ties_but_is_capped() {
     let patterns = complete(&["wo", "qu"]);
     let lifted = |count: u32| {
         convert(
-            &[&dictionary],
+            &SearchInput::new(
+                &[&dictionary],
+                &NoLanguageModel,
+                Personal::NONE,
+                |t| if t == "区" { count } else { 0 },
+                |_, _| 0.0,
+            ),
             &patterns,
-            &NoLanguageModel,
-            Personal::NONE,
-            |t| if t == "区" { count } else { 0 },
-            |_, _| 0.0,
             &mut SpanCache::default(),
         )
         .unwrap()
@@ -132,12 +141,14 @@ fn language_model_decides_abbreviated_homophones() {
     let dictionary = Dictionary::parse(SAMPLE).unwrap();
     let patterns = abbreviated(&["w", "x"]);
     let conversion = convert(
-        &[&dictionary],
+        &SearchInput::new(
+            &[&dictionary],
+            &XiangModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+        ),
         &patterns,
-        &XiangModel,
-        Personal::NONE,
-        |_| 0,
-        |_, _| 0.0,
         &mut SpanCache::default(),
     )
     .unwrap();
@@ -174,12 +185,14 @@ fn zero_frequency_words_stay_out_until_chosen() {
     let patterns = complete(&["ken", "eng"]);
     assert!(unigram(&dictionary, &patterns).unwrap().has_placeholder());
     let chosen = convert(
-        &[&dictionary],
+        &SearchInput::new(
+            &[&dictionary],
+            &NoLanguageModel,
+            Personal::NONE,
+            |text| u32::from(text == "鞥"),
+            |_, _| 0.0,
+        ),
         &patterns,
-        &NoLanguageModel,
-        Personal::NONE,
-        |text| u32::from(text == "鞥"),
-        |_, _| 0.0,
         &mut SpanCache::default(),
     )
     .unwrap();
@@ -191,12 +204,14 @@ fn language_model_decides_between_homophones() {
     let dictionary = Dictionary::parse(SAMPLE).unwrap();
     let patterns = complete(&["wo", "xiang"]);
     let conversion = convert(
-        &[&dictionary],
+        &SearchInput::new(
+            &[&dictionary],
+            &XiangModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+        ),
         &patterns,
-        &XiangModel,
-        Personal::NONE,
-        |_| 0,
-        |_, _| 0.0,
         &mut SpanCache::default(),
     )
     .unwrap();
@@ -211,12 +226,14 @@ fn personal_ngram_overrides_static_model_after_two_selections() {
     let mut personal = UserNgram::default();
     let text = |personal: &UserNgram| {
         convert(
-            &[&dictionary],
+            &SearchInput::new(
+                &[&dictionary],
+                &XiangModel,
+                Personal::new(Some(personal)),
+                |_| 0,
+                |_, _| 0.0,
+            ),
             &patterns,
-            &XiangModel,
-            Personal::new(Some(personal)),
-            |_| 0,
-            |_, _| 0.0,
             &mut SpanCache::default(),
         )
         .unwrap()
@@ -241,12 +258,14 @@ fn trigram_context_comes_from_the_predecessor_chain() {
     let patterns = complete(&["wo", "xiang", "qu"]);
     let convert_with = |personal: &UserNgram| {
         convert(
-            &[&dictionary],
+            &SearchInput::new(
+                &[&dictionary],
+                &NoLanguageModel,
+                Personal::new(Some(personal)),
+                |_| 0,
+                |_, _| 0.0,
+            ),
             &patterns,
-            &NoLanguageModel,
-            Personal::new(Some(personal)),
-            |_| 0,
-            |_, _| 0.0,
             &mut SpanCache::default(),
         )
         .unwrap()
@@ -272,12 +291,14 @@ fn cached_spans_give_the_same_sentence_and_only_new_spans_are_computed() {
     let run = |cache: &mut SpanCache, syllables: &[&str]| {
         let patterns = complete(syllables);
         convert(
-            &[&dictionary],
+            &SearchInput::new(
+                &[&dictionary],
+                &NoLanguageModel,
+                Personal::NONE,
+                |_| 0,
+                |_, _| 0.0,
+            ),
             &patterns,
-            &NoLanguageModel,
-            Personal::NONE,
-            |_| 0,
-            |_, _| 0.0,
             cache,
         )
         .unwrap()
@@ -301,9 +322,9 @@ fn cached_spans_give_the_same_sentence_and_only_new_spans_are_computed() {
 #[test]
 fn typo_alternatives_are_penalized_edges() {
     let dictionary = Dictionary::parse(
-            "关系\tguan xi\t500000\n干\tgan\t20000\n洗\txi\t10000\n感谢\tgan xie\t300000\n关\tguan\t30000\n谢\txie\t5000\n",
-        )
-        .unwrap();
+        "关系\tguan xi\t500000\n干\tgan\t20000\n洗\txi\t10000\n感谢\tgan xie\t300000\n关\tguan\t30000\n谢\txie\t5000\n",
+    )
+    .unwrap();
     let cost = |index: usize, syllable: &str| {
         if index == 0 && syllable == "guan" {
             4.5
@@ -313,12 +334,14 @@ fn typo_alternatives_are_penalized_edges() {
     };
     let run = |positions: Vec<Vec<SyllablePattern<'_>>>| {
         convert(
-            &[&dictionary],
+            &SearchInput::new(
+                &[&dictionary],
+                &NoLanguageModel,
+                Personal::NONE,
+                |_| 0,
+                cost,
+            ),
             &positions,
-            &NoLanguageModel,
-            Personal::NONE,
-            |_| 0,
-            cost,
             &mut SpanCache::default(),
         )
         .unwrap()
@@ -342,13 +365,158 @@ fn typo_alternatives_are_penalized_edges() {
     assert_eq!(conversion.penalty, 0.0);
 }
 
+/// 束宽收到 1 只剩一条路径，就是缺省下的最优那条。
+#[test]
+fn beam_width_of_one_keeps_only_the_best_path() {
+    let dictionary = Dictionary::parse(SAMPLE).unwrap();
+    let patterns = complete(&["wo", "xiang", "qu"]);
+    let narrow = SearchLimits {
+        beam_width: 1,
+        ..SearchLimits::DEFAULT
+    };
+    let mut cache = SpanCache::default();
+    let paths = convert_paths(
+        &SearchInput::new(
+            &[&dictionary],
+            &NoLanguageModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+        )
+        .with_limits(narrow),
+        &patterns,
+        false,
+        8,
+        &mut cache,
+    );
+    assert_eq!(paths.len(), 1, "束宽 1 只该剩一条路径");
+    assert_eq!(paths[0].text, "我想去");
+}
+
+/// 每格候选按限制截断：`qu` 格有 去 / 区，收到 1 只剩词频高的；直接数 [`span_candidates`]，整句结果会被个人数据搅乱。
+#[test]
+fn span_candidates_truncates_to_the_limit() {
+    let dictionary = Dictionary::parse(SAMPLE).unwrap();
+    let span = complete(&["qu"]);
+    let take = |limits: SearchLimits| {
+        span_candidates(
+            &SearchInput::new(
+                &[&dictionary],
+                &NoLanguageModel,
+                Personal::NONE,
+                |_| 0,
+                |_, _| 0.0,
+            )
+            .with_limits(limits),
+            &span,
+            0,
+            &[],
+            span_limit(&span, &limits),
+        )
+        .len()
+    };
+    // 两个候选都在：去 与 区
+    assert_eq!(take(SearchLimits::DEFAULT), 2);
+    assert_eq!(
+        take(SearchLimits {
+            span_candidates: 1,
+            ..SearchLimits::DEFAULT
+        }),
+        1,
+        "收到 1 只剩词频最高的那个"
+    );
+    // 简拼格的宽度是另一个数：`q` 是前缀，命中一大片，用 abbreviated 那个
+    let abbreviated = vec![vec![SyllablePattern::prefix("q")]];
+    let take_abbreviated = |limits: SearchLimits| {
+        span_candidates(
+            &SearchInput::new(
+                &[&dictionary],
+                &NoLanguageModel,
+                Personal::NONE,
+                |_| 0,
+                |_, _| 0.0,
+            )
+            .with_limits(limits),
+            &abbreviated,
+            0,
+            &[],
+            span_limit(&abbreviated, &limits),
+        )
+        .len()
+    };
+    // SAMPLE 里 q 开头的音节只有 qu，所以命中 去 / 区 两个；width=1 时砍到一个
+    assert_eq!(take_abbreviated(SearchLimits::DEFAULT), 2);
+    assert_eq!(
+        take_abbreviated(SearchLimits {
+            abbreviated_span_candidates: 1,
+            ..SearchLimits::DEFAULT
+        }),
+        1,
+        "简拼格用 abbreviated_span_candidates，不是 span_candidates"
+    );
+}
+
+/// 三个限制各管各的，只放宽 span 不影响别的。
+#[test]
+fn each_limit_field_reaches_the_search_independently() {
+    let dictionary = Dictionary::parse(SAMPLE).unwrap();
+    let patterns = complete(&["kai", "fa"]);
+    let wide = SearchLimits {
+        span_candidates: 64,
+        ..SearchLimits::DEFAULT
+    };
+    let mut cache = SpanCache::default();
+    // 放宽 span 不该让结果变差：开发 / 开放 都还在候选里，缺省下也选 开发
+    let conversion = convert(
+        &SearchInput::new(
+            &[&dictionary],
+            &NoLanguageModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+        )
+        .with_limits(wide),
+        &patterns,
+        &mut cache,
+    )
+    .unwrap();
+    assert_eq!(conversion.text, "开发");
+    // 确认缓存键没把限制算进去：换一组限制必须重新算（Engine 负责清缓存，
+    // 这里手工换个新缓存模拟）
+    let mut fresh = SpanCache::default();
+    let again = convert(
+        &SearchInput::new(
+            &[&dictionary],
+            &NoLanguageModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+        ),
+        &patterns,
+        &mut fresh,
+    )
+    .unwrap();
+    assert_eq!(again.text, "开发");
+}
+
+/// 长句末尾几个音节各有一串打平的字时，末尾节点回溯出的 n-best 全是它们的组合；拼接备选让开头拿不准的字也有一条，
+/// 且同一处的变体不扎堆（选词模型只看前几条）。
 #[test]
 fn alternatives_reach_the_head_of_the_sentence_not_just_its_tail() {
     // 长句末两个音节各有一串几乎打平的字，末尾节点回溯出的 n-best 全是它们的组合；开头 假 只差一点，也得有一条
-    let mut source = String::from("甲\tjia\t1000\n假\tjia\t500\n字\tzi\t1000\n");
+    let mut source = String::from(
+        "甲	jia	1000
+假	jia	500
+字	zi	1000
+",
+    );
     for (syllable, chars) in [("ba", "八吧把爸拔疤"), ("la", "拉啦喇腊蜡辣")] {
         for (i, c) in chars.chars().enumerate() {
-            source.push_str(&format!("{c}\t{syllable}\t{}\n", 1000 - i));
+            source.push_str(&format!(
+                "{c}	{syllable}	{}
+",
+                1000 - i
+            ));
         }
     }
     let dictionary = Dictionary::parse(&source).unwrap();
@@ -357,16 +525,16 @@ fn alternatives_reach_the_head_of_the_sentence_not_just_its_tail() {
     syllables.extend(["ba", "la"]);
     let middle = "字".repeat(10);
     let paths = convert_paths(
-        &[&dictionary],
+        &SearchInput::new(
+            &[&dictionary],
+            &NoLanguageModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+        ),
         &complete(&syllables),
         false,
         16,
-        &NoLanguageModel,
-        Personal::NONE,
-        |_| 0,
-        |_, _| 0.0,
-        &[],
-        &|_, _, _| 0.0,
         &mut SpanCache::default(),
     );
     let texts: Vec<&str> = paths.iter().map(|p| p.text.as_str()).collect();

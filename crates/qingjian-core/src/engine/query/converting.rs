@@ -405,21 +405,27 @@ impl Engine {
             want
         };
         let table = self.char_table(patterns);
-        let mut paths = sentence::convert_paths(
+        let emission = |start: usize, text: &str, syllables: &[String]| {
+            table.as_deref().map_or(0.0, |table| {
+                char_emission(table, patterns, start, text, syllables)
+            })
+        };
+        let tones = self.sentence_tones(patterns);
+        let input = sentence::SearchInput::new(
             &dictionaries,
-            &expanded.positions(),
-            whole,
-            k,
             &*self.language_model,
             self.personal(),
             |text| self.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),
-            &self.sentence_tones(patterns),
-            &|start, text, syllables| {
-                table.as_deref().map_or(0.0, |table| {
-                    char_emission(table, patterns, start, text, syllables)
-                })
-            },
+        )
+        .with_tones(&tones)
+        .with_emission(&emission)
+        .with_limits(self.search_limits);
+        let mut paths = sentence::convert_paths(
+            &input,
+            &expanded.positions(),
+            whole,
+            k,
             &mut self.span_cache.borrow_mut(),
         );
         // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的

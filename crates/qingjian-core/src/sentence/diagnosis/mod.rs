@@ -6,16 +6,14 @@ mod parts;
 
 use std::collections::HashMap;
 
-use qingjian_dictionary::{Dictionary, SyllablePattern};
+use qingjian_dictionary::SyllablePattern;
 
 pub use loss::Loss;
 pub use parts::Parts;
 
 use super::kept_hits;
 use super::viterbi::{span_candidates, span_limit};
-use super::{
-    Context, LanguageModel, MAX_WORD_SYLLABLES, Personal, fallback_log_prob, transition_log_prob,
-};
+use super::{Context, MAX_WORD_SYLLABLES, SearchInput, fallback_log_prob, transition_log_prob};
 use crate::ranking::weight_bonus;
 
 /// 对齐到原句某处的一条部分路径。
@@ -29,34 +27,20 @@ struct Partial {
     worst: Option<(String, usize, usize)>,
 }
 
-/// 原句 `gold` 在这张词图上丢在哪。参数与 [`super::convert_paths`] 相同，`best` 是词图选出的最优路径的文本。
+/// 原句 `gold` 在这张词图上丢在哪。`input` 与 `positions` 同 [`super::convert_paths`]（格子名额也按 `input.limits`），
+/// `best` 是词图选出的最优路径的文本。
 /// 返回 [`Loss::Unreachable`] / [`Loss::Pruned`] / [`Loss::Search`] / [`Loss::Scoring`] 之一；切分与组装由调用方判断。
-#[allow(clippy::too_many_arguments)]
-pub fn diagnose(
-    dictionaries: &[&Dictionary],
+pub fn diagnose<W, C>(
+    input: &SearchInput<'_, W, C>,
     positions: &[Vec<SyllablePattern<'_>>],
     gold: &str,
-    model: &dyn LanguageModel,
-    personal: Personal<'_>,
-    weight: impl Fn(&str) -> u32,
-    cost: impl Fn(usize, &str) -> f64,
-    tones: &[Option<u8>],
-    emission: &dyn Fn(usize, &str, &[String]) -> f64,
     best: &str,
-) -> Loss {
-    let align = |text: &str| {
-        align(
-            dictionaries,
-            positions,
-            text,
-            model,
-            personal,
-            &weight,
-            &cost,
-            tones,
-            emission,
-        )
-    };
+) -> Loss
+where
+    W: Fn(&str) -> u32,
+    C: Fn(usize, &str) -> f64,
+{
+    let align = |text: &str| align(input, positions, text);
     let path = match align(gold) {
         Ok(path) => path,
         Err(covered) => return Loss::Unreachable { covered },
@@ -85,21 +69,19 @@ pub fn diagnose(
 }
 
 /// 把 `text` 对齐到词图上，取最好的一条（先要求词都在格子里，再比分数）；对不上时返回拼得出的字数。
-#[allow(clippy::too_many_arguments)]
-fn align(
-    dictionaries: &[&Dictionary],
+fn align<W, C>(
+    input: &SearchInput<'_, W, C>,
     positions: &[Vec<SyllablePattern<'_>>],
     gold: &str,
-    model: &dyn LanguageModel,
-    personal: Personal<'_>,
-    weight: &impl Fn(&str) -> u32,
-    cost: &impl Fn(usize, &str) -> f64,
-    tones: &[Option<u8>],
-    emission: &dyn Fn(usize, &str, &[String]) -> f64,
-) -> Result<Partial, usize> {
+) -> Result<Partial, usize>
+where
+    W: Fn(&str) -> u32,
+    C: Fn(usize, &str) -> f64,
+{
     let chars: Vec<char> = gold.chars().collect();
     let n = positions.len();
-    let log_total = dictionaries
+    let log_total = input
+        .dictionaries
         .iter()
         .map(|d| d.total_frequency() as f64)
         .sum::<f64>()
@@ -129,19 +111,16 @@ fn align(
             .map(|end| {
                 let span = &positions[start..end];
                 let hits = span_candidates(
-                    dictionaries,
+                    input,
                     span,
                     start,
-                    personal,
-                    weight,
-                    cost,
-                    tones.get(start..end).unwrap_or(&[]),
+                    input.tones.get(start..end).unwrap_or(&[]),
                     usize::MAX,
                 );
-                let limit = span_limit(span);
+                let limit = span_limit(span, &input.limits);
                 // 名额外按出字分收进来的词也算在格子里：名次记成名额以内
                 let kept: std::collections::HashSet<usize> =
-                    kept_hits(&hits, limit, start, emission)
+                    kept_hits(&hits, limit, start, input.emission)
                         .into_iter()
                         .map(|(rank, _)| rank)
                         .collect();
@@ -172,10 +151,12 @@ fn align(
                         continue;
                     }
                     let fallback = fallback_log_prob(hit.frequency, hit.secondary, log_total);
-                    let emitted = emission(start, &hit.text, &hit.syllables);
-                    let step =
-                        weight_bonus(weight(&hit.text)) - hit.penalty - hit.tone - hit.reading
-                            + emitted;
+                    let emitted = (input.emission)(start, &hit.text, &hit.syllables);
+                    let step = weight_bonus((input.weight)(&hit.text))
+                        - hit.penalty
+                        - hit.tone
+                        - hit.reading
+                        + emitted;
                     let next = states.entry((end, offset + length)).or_default();
                     for (previous, partial) in &here {
                         let context = if start == 0 {
@@ -186,8 +167,13 @@ fn align(
                                 earlier: partial.earlier.as_deref(),
                             }
                         };
-                        let transition =
-                            transition_log_prob(model, personal, context, &hit.text, fallback);
+                        let transition = transition_log_prob(
+                            input.model,
+                            input.personal,
+                            context,
+                            &hit.text,
+                            fallback,
+                        );
                         let parts = Parts {
                             score: partial.parts.score + transition + step,
                             language_model: partial.parts.language_model + transition,
