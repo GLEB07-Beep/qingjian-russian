@@ -42,7 +42,7 @@ pub enum Feature {
     KeyHint,
     /// 拼音行按高亮候选显示带调拼音。
     ShowTones,
-    /// 「实验功能」页：下载、启用知意与含章·知微。
+    /// 「实验功能」页：下载、启用知意与含章·通变。
     ExperimentalModels,
 }
 
@@ -144,7 +144,7 @@ impl Feature {
             Self::VocabularyTranslation => "生词本整句翻译",
             Self::KeyHint => "双拼键位提示",
             Self::ShowTones => "拼音行显示声调",
-            Self::ExperimentalModels => "实验功能（知意、含章·知微）",
+            Self::ExperimentalModels => "实验功能（知意、含章·通变）",
         }
     }
 

@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 
 /// 配置文件 `[model]` 分节：本地整句模型的开关。
 ///
-/// 本地模型在本机给候选重新排序，全程离线、不联网，与云联想互不影响（本地先出、云端到了另占它自己的格）。
-/// 选的模型还没下载时退回随包的含章·通变。
+/// 本地模型在本机给整句候选重新排序或直接造句，全程离线、不联网，与云联想互不影响（本地先出、云端到了另占它自己的格）。
+/// 选的模型还没下载时不用模型（Linux 随包带通变）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LocalModelConfig {

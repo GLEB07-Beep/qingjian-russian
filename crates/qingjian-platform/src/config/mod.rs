@@ -385,7 +385,7 @@ disabled = []
 [model]
 # 本地模型：在本机给整句候选重新排序或直接造句，全程离线；停顿后几十毫秒生效。缺省关，只用词库统计
 enabled = false
-# 用哪个：tongbian 含章·通变（随包，按拼音造句）/ zhiwei 含章·知微（按前文排整句）/ zhiyi 知意（按前文挑首选）；后两个先在设置的「实验功能」里下载，没下载就用通变
+# 用哪个：tongbian 含章·通变（按拼音造句）/ zhiyi 知意（按前文挑首选）；先在设置的「实验功能」里下载（Linux 随包带通变），没下载就不用模型
 name = "tongbian"
 # 知意的档位：saver 省电 / balanced 均衡 / accurate 准确（比的候选更多、看的前文更长，也更费电）
 zhiyi_tier = "balanced"

@@ -69,6 +69,8 @@ pub enum Message {
     CancelDownload,
     /// 删掉下好的模型（第一下只是确认）。
     RemoveModel(qingjian_platform::LocalModel),
+    /// 实验功能里开一个模型（`None` 是关掉，不用模型）。
+    UseModel(Option<qingjian_platform::LocalModel>),
     /// 展开 / 收起「关于」页的数据来源。
     ToggleSources,
     /// 统计页切到「云服务」层（`false` 回「输入」层）。

@@ -21,6 +21,14 @@ fn partial_file_keeps_other_defaults() {
     assert_eq!(config.predict.min_interval_ms, 3000);
 }
 
+/// 含章·知微下线后，老配置里的 `name = "zhiwei"` 按通变读，不让整个配置读失败。
+#[test]
+fn retired_zhiwei_model_reads_as_tongbian() {
+    let config: Config = toml::from_str("[model]\nenabled = true\nname = \"zhiwei\"\n").unwrap();
+    assert!(config.model.enabled);
+    assert_eq!(config.model.name, LocalModel::Tongbian);
+}
+
 #[test]
 fn emoji_reads_counts_and_old_switch() {
     let emoji = |value: &str| {

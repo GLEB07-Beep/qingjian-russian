@@ -28,7 +28,7 @@
 | 9 | 统计 | 柱状图 | 输入量、词汇 | 统计 |
 | 10 | 生词本 | 卡片 | 时间线、词表、导出 | 新加 |
 | 11 | 高级 | 齿轮 | 配置文件、日志、学习数据 | 高级、关于 |
-| 12 | 实验功能 | 烧瓶 | 下载、启用知意与含章·知微（macOS、Windows） | 新加 |
+| 12 | 实验功能 | 烧瓶 | 下载、启用知意与含章·通变（macOS、Windows） | 新加 |
 | 13 | 关于 | 竹简 | 版本、更新、许可、数据来源、隐私 | 关于 |
 
 ## 各页
@@ -247,11 +247,11 @@ Windows 和 Linux 以前没有这一页，这次都有了。
 | 下载中 | 「取消」按钮；下面一行「正在下载 x / y MB」与进度条 |
 | 解压中 | 灰掉的「正在安装…」 |
 | 下载失败 | 「重试」按钮，下面写原因 |
-| 下好了 | 开关 `model.name`：开了写这个模型，关了写回 `tongbian`；下完自动打开 |
+| 下好了 | 开关：开了写 `model.name` 并打开 `model.enabled`，关了只关 `model.enabled`（不用模型）；下完自动打开 |
 
 知意开着时多一行「档位」（分段：省电 / 均衡 / 准确，`model.zhiyi_tier`）。
 下载同时问 Gitee 与 GitHub 要清单、先答的那边先下，某块失败换另一边（模型仓库 `qingjian-team/qingjian-models` 的 Release，标签写死在 `jobs/model_download/pack.rs`），
-逐块核对 SHA-256 再核对整个压缩包，解到临时目录后换进用户目录的 `models/zhiyi/`（Windows 是 int8 ONNX 版 `models/zhiyi-onnx/`）、`models/hanzhang-zhiwei/`。关掉窗口下载就停，下次从头下。
+逐块核对 SHA-256 再核对整个压缩包，解到临时目录后换进用户目录的 `models/zhiyi/`（Windows 是 int8 ONNX 版 `models/zhiyi-onnx/`）、`models/hanzhang-tongbian/`。关掉窗口下载就停，下次从头下。
 Linux 的输入法还没接，support 表登记「待实现」，侧栏不出这一页。
 
 ### 13 关于

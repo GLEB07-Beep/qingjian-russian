@@ -116,18 +116,7 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     mkdir -p "$APP/Contents/Resources/codes"
     cp data/generated/codes/*.qj assets/stroke/LICENSE-CNS11643.txt "$APP/Contents/Resources/codes/"
   fi
-  # 含章·通变（P2C，带噪拼音 → 汉字）：放 Resources/models/hanzhang-tongbian/。
-  # 含章·知微（字级模型）不随包：有通变时三个桌面平台都不加载它，用户自己放进数据目录 models/hanzhang-zhiwei/ 仍认
-  p2c_dir="${QINGJIAN_P2C_MODEL_DIR:-data/models/hanzhang-tongbian}"
-  if [[ -f "$p2c_dir/model.safetensors" ]]; then
-    QINGJIAN_MODEL_DIR="$p2c_dir" tools/release/pack-model.sh
-  fi
-  if [[ -f "$p2c_dir/hanzhang-tongbian-small.qjm" ]]; then
-    mkdir -p "$APP/Contents/Resources/models/hanzhang-tongbian"
-    cp "$p2c_dir/hanzhang-tongbian-small.qjm" "$APP/Contents/Resources/models/hanzhang-tongbian/"
-    chmod 644 "$APP/Contents/Resources/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm"
-    echo "打包含章·通变：$p2c_dir/hanzhang-tongbian-small.qjm"
-  fi
+  # 本地整句模型不随包：缺省不用模型，含章·通变与知意都在设置的「实验功能」里下载到用户目录 models/
   # 释义表打成 .qj（TSV 比 .qj 新时重打），英文词表仍是 TSV。各表来源不同，元数据按表写（见 assets/glossary/README.md）
   for lang in en ja zh es vi de; do
     src="assets/glossary/glossary-$lang.tsv"

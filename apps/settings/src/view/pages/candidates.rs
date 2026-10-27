@@ -129,7 +129,7 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
             ui,
             page,
             "本地整句模型",
-            Some("在本机排整句，不联网"),
+            Some("在本机排整句或造句，不联网"),
             ("model", "enabled"),
             config.model.enabled,
             false,
