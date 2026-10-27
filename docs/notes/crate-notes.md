@@ -558,6 +558,8 @@ Server 把它读进 `RouterConfig.preedit` 并随 `Frame.preedit_mode` 下发给
 连不上 Server 时 DLL 自己拉起它（`tsf/src/com/service/launch.rs`）：`ShellExecuteW` 起与 DLL 同目录的 `qingjian-server.exe`
 （`uiAccess=true` 的 exe 用 `CreateProcess` 报 740），进程内 5 秒冷却 + 跨进程命名互斥体防止砸出一串 Server；
 起完清掉重连退避，下一键就试。Server 只在登录时由「启动」文件夹拉起，中途挂了以前只能等下次登录。
+Server 自己一开始就占命名互斥体 `Local\QingjianServer`（`ipc/instance.rs`），占不到直接退出：管道要等装配完（一秒多）才建，
+以前登录时快捷方式与 DLL 各拉一个的话，第二个会把词库与本地模型整套加载一遍才因管道被占退出。
 
 词库导入（设置「词库」页）走 `qingjian-dictionary::import` 转成 `.qj`（空词库拒绝），多选批量、成功的从 `[dictionaries] disabled` 摘掉、页面显示每个文件的结果；
 `import::import_dictionary` 是各平台导入入口用的那层：源文件里有没写读音的词（只有词的 txt / 混了无读音行的 Rime 词库，

@@ -168,6 +168,11 @@ fn main() {
     let template = write_config_template();
     let config = load_config();
     let _log_guard = init_logging(&config);
+    #[cfg(windows)]
+    let Some(_instance) = qingjian_windows_server::ipc::instance::Instance::acquire() else {
+        tracing::info!("已有一个 qingjian-server 在运行，本进程退出");
+        return;
+    };
     match template {
         Some(Ok(true)) => tracing::info!("已写出配置模板"),
         Some(Err(error)) => tracing::warn!(%error, "写配置模板失败"),
