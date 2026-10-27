@@ -5,7 +5,7 @@ use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use qingjian_format::{Container, Kind, Metadata};
 
-use crate::model::PrefixCache;
+use crate::model::{PrefixCache, Q8Matrix};
 use crate::vocab::EOS;
 use crate::{CharLm, ModelConfig, NeuralError, Vocab, find_model, qjm};
 
@@ -84,7 +84,8 @@ impl CharScorer {
         if vocab.len() != cfg.vocab_size {
             return Err(NeuralError::Corrupt("vocab size differs from config"));
         }
-        let model = CharLm::load(vb, cfg, device)?;
+        let quantize = quantizes(&device);
+        let model = CharLm::load(vb, cfg, device, quantize)?;
         Ok(Self {
             model,
             vocab,
@@ -213,8 +214,9 @@ impl CharScorer {
     }
 }
 
-/// 权重与中间量的精度：Metal 上缺省 f16（与 f32 打分一致，显存减一半、略快），CPU 上 f32（candle 的 CPU f16 矩阵乘慢）；
-/// 环境变量 `QINGJIAN_NEURAL_DTYPE=f32|f16` 可强制。
+/// 权重与中间量的精度：Metal 上缺省 f16（与 f32 打分一致，显存减一半、略快）；CPU 上中间量 f32
+/// （candle 的 CPU f16 矩阵乘慢），线性层另量化成 Q8_0（见 [`quantizes`]）。
+/// 环境变量 `QINGJIAN_NEURAL_DTYPE=f32|f16` 可强制，强制时不量化。
 fn weight_dtype(device: &Device) -> DType {
     match std::env::var("QINGJIAN_NEURAL_DTYPE").as_deref() {
         Ok("f16") => DType::F16,
@@ -222,6 +224,12 @@ fn weight_dtype(device: &Device) -> DType {
         _ if device.is_metal() => DType::F16,
         _ => DType::F32,
     }
+}
+
+/// CPU 上有 AVX2 + FMA 时缺省把线性层量化成 int8：f32 权重是文件（f16）的两倍大，量化后约为文件的一半，
+/// 还更快；对比见 `docs/notes/crate-notes.md` 的 qingjian-neural 一节。
+fn quantizes(device: &Device) -> bool {
+    device.is_cpu() && Q8Matrix::supported() && std::env::var("QINGJIAN_NEURAL_DTYPE").is_err()
 }
 
 #[cfg(not(feature = "metal"))]

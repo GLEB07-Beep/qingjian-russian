@@ -4,6 +4,7 @@
 //! 权重 2026-10-20 起是 Apache-2.0，不随包，放用户目录；目录里要有 `tokenizer.json`、`unified_vocab.json`，
 //! 再加 `model.safetensors` + `config.json`，或 `laya.int8g.onnx`。
 
+mod bpe;
 mod candle_forward;
 mod choice_model;
 mod encoder;
@@ -19,9 +20,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use serde::Deserialize;
-use tokenizers::Tokenizer;
 
 use crate::NeuralError;
+use bpe::Bpe;
 use candle_forward::CandleForward;
 use forward::Forward;
 use input::Sequence;
@@ -40,7 +41,7 @@ struct UnifiedVocab {
 /// 加载好的选词模型。
 pub struct ChoiceScorer {
     forward: Box<dyn Forward>,
-    tokenizer: Tokenizer,
+    tokenizer: Bpe,
     /// 拼音单元名（`f:zhong` / `p:g`）→ 单元号。
     units: HashMap<String, u32>,
     /// 英文字母表，单元号是 `units.len()` + 下标。
@@ -65,8 +66,7 @@ impl ChoiceScorer {
 
     fn with_forward(dir: &Path, forward: Box<dyn Forward>) -> Result<Self, NeuralError> {
         let vocab: UnifiedVocab = read_json(&dir.join("unified_vocab.json"))?;
-        let tokenizer = Tokenizer::from_file(dir.join("tokenizer.json"))
-            .map_err(|_| NeuralError::Corrupt("tokenizer.json"))?;
+        let tokenizer = Bpe::load(&dir.join("tokenizer.json"))?;
         Ok(Self {
             forward,
             tokenizer,
@@ -150,11 +150,8 @@ impl ChoiceScorer {
         ))
     }
 
-    fn encode(&self, text: &str) -> Result<Vec<u32>, NeuralError> {
-        self.tokenizer
-            .encode(text, false)
-            .map(|encoding| encoding.get_ids().to_vec())
-            .map_err(|_| NeuralError::Corrupt("tokenizer failed"))
+    fn encode(&self, text: &str) -> Vec<u32> {
+        self.tokenizer.encode(text)
     }
 }
 

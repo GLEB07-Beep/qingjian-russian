@@ -3920,6 +3920,7 @@ dependencies = [
  "ort",
  "qingjian-core",
  "qingjian-format",
+ "rayon",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

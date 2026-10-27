@@ -1,7 +1,18 @@
+//! 字级 decoder-only Transformer（[`CharLm`]）的前向与前文缓存。
+
+mod prefix_cache;
+mod projection;
+mod q8_matrix;
+
+pub use prefix_cache::PrefixCache;
+
 use candle_core::{D, DType, Device, Module, Result, Tensor};
-use candle_nn::{Embedding, LayerNorm, Linear, VarBuilder, layer_norm, linear, ops};
+use candle_nn::{Embedding, LayerNorm, VarBuilder, layer_norm, ops};
 
 use crate::ModelConfig;
+use projection::Projection;
+
+pub(crate) use q8_matrix::Q8Matrix;
 
 /// 掩码里未来位置加的值：够大到 softmax 后为 0，又在 f16 范围内。
 const MASKED: f32 = -1.0e4;
@@ -9,77 +20,68 @@ const MASKED: f32 = -1.0e4;
 /// 一层：pre-LN 自注意力 + pre-LN MLP，都带残差。
 struct Block {
     ln1: LayerNorm,
-    qkv: Linear,
-    attn_proj: Linear,
+
+    qkv: Projection,
+
+    attn_proj: Projection,
+
     ln2: LayerNorm,
-    fc: Linear,
-    mlp_proj: Linear,
-}
 
-/// 一段前文在每层的 K / V（形状 `[1, h, p, d]`）。前文在一次组句里不变，算一次存下来，
-/// 候选接在后面时只算候选自己那几个 token（见 [`CharLm::log_probs_after`]）。
-pub struct PrefixCache {
-    keys: Vec<Tensor>,
-    values: Vec<Tensor>,
-    len: usize,
-}
+    fc: Projection,
 
-impl PrefixCache {
-    /// 前文的 token 数。
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
-    /// 按行号重排 batch 维：beam search 每步挑完候选要把各条的 K / V 跟着搬。
-    /// `order` 是 `[b]` 的 u32 行号，允许重复（一行可以分裂成多条）。
-    pub fn select(&self, order: &Tensor) -> Result<Self> {
-        let pick = |t: &Tensor| t.index_select(order, 0);
-        Ok(Self {
-            keys: self.keys.iter().map(pick).collect::<Result<_>>()?,
-            values: self.values.iter().map(pick).collect::<Result<_>>()?,
-            len: self.len,
-        })
-    }
+    mlp_proj: Projection,
 }
 
 /// 字级 decoder-only Transformer。张量名见 `tools/lm-train/model.py`。
 pub struct CharLm {
+    /// 量化时留文件里的 f16（每次只查几十行），查完转成 `dtype`。
     tok_emb: Embedding,
+
     pos_emb: Tensor,
+
     blocks: Vec<Block>,
+
     ln_f: LayerNorm,
+
     /// 输出层复用输入嵌入。
-    head: Linear,
+    head: Projection,
+
     cfg: ModelConfig,
+
     device: Device,
-    /// 权重与中间量的精度（f32，或 Metal 上的 f16）。
+
+    /// 中间量的精度（f32，或 Metal 上的 f16），也是不量化时权重的精度。
     dtype: DType,
 }
 
 impl CharLm {
-    pub fn load(vb: VarBuilder, cfg: ModelConfig, device: Device) -> Result<Self> {
-        let tok_weight = vb.get((cfg.vocab_size, cfg.n_embd), "tok_emb.weight")?;
+    /// `quantize` 为真时线性层与输出层量化成 Q8_0、词嵌入留 f16，其余按 `vb` 的精度（应为 f32）：
+    /// CPU 上权重占的内存约为 f32 的四分之一。
+    pub fn load(vb: VarBuilder, cfg: ModelConfig, device: Device, quantize: bool) -> Result<Self> {
+        let dtype = vb.dtype();
+        let embedding = if quantize {
+            vb.to_dtype(DType::F16)
+        } else {
+            vb.clone()
+        };
+        let tok_weight = embedding.get((cfg.vocab_size, cfg.n_embd), "tok_emb.weight")?;
         let tok_emb = Embedding::new(tok_weight.clone(), cfg.n_embd);
         let pos_emb = vb.get((cfg.context, cfg.n_embd), "pos_emb.weight")?;
+        let c = cfg.n_embd;
         let mut blocks = Vec::with_capacity(cfg.n_layer);
         for i in 0..cfg.n_layer {
             let b = vb.pp(format!("blocks.{i}"));
             blocks.push(Block {
-                ln1: layer_norm(cfg.n_embd, 1e-5, b.pp("ln1"))?,
-                qkv: linear(cfg.n_embd, 3 * cfg.n_embd, b.pp("attn.qkv"))?,
-                attn_proj: linear(cfg.n_embd, cfg.n_embd, b.pp("attn.proj"))?,
-                ln2: layer_norm(cfg.n_embd, 1e-5, b.pp("ln2"))?,
-                fc: linear(cfg.n_embd, 4 * cfg.n_embd, b.pp("mlp.fc"))?,
-                mlp_proj: linear(4 * cfg.n_embd, cfg.n_embd, b.pp("mlp.proj"))?,
+                ln1: layer_norm(c, 1e-5, b.pp("ln1"))?,
+                qkv: Projection::load(b.pp("attn.qkv"), c, 3 * c, quantize)?,
+                attn_proj: Projection::load(b.pp("attn.proj"), c, c, quantize)?,
+                ln2: layer_norm(c, 1e-5, b.pp("ln2"))?,
+                fc: Projection::load(b.pp("mlp.fc"), c, 4 * c, quantize)?,
+                mlp_proj: Projection::load(b.pp("mlp.proj"), 4 * c, c, quantize)?,
             });
         }
-        let ln_f = layer_norm(cfg.n_embd, 1e-5, vb.pp("ln_f"))?;
-        let dtype = tok_weight.dtype();
-        let head = Linear::new(tok_weight, None);
+        let ln_f = layer_norm(c, 1e-5, vb.pp("ln_f"))?;
+        let head = Projection::tied(tok_weight, quantize)?;
         Ok(Self {
             tok_emb,
             pos_emb,
@@ -167,7 +169,11 @@ impl CharLm {
         let offset = past.map_or(0, PrefixCache::len);
         let mask = self.causal_mask(t, offset)?;
         let pos = self.pos_emb.narrow(0, offset, t)?;
-        let mut x = self.tok_emb.forward(idx)?.broadcast_add(&pos)?;
+        let mut x = self
+            .tok_emb
+            .forward(idx)?
+            .to_dtype(self.dtype)?
+            .broadcast_add(&pos)?;
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (i, block) in self.blocks.iter().enumerate() {
