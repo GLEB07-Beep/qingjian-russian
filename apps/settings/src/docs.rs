@@ -323,7 +323,7 @@ mod tests {
         // 选一种双拼：「输入框显示按键」只在双拼时建出来
         let shuangpin = qingjian_platform::Scheme::ALL[1];
         qingjian_platform::Config::set_value(&path, "general", "scheme", shuangpin.key()).unwrap();
-        let settings = crate::settings::Settings::load(path).unwrap();
+        let settings = crate::settings::Settings::load(path);
         let index = crate::view::index(&settings);
         let _ = std::fs::remove_dir_all(&dir);
         // 只在别的平台显示的行这个平台上建不出来；短语卡片里的行只在卡片打开时建；

@@ -19,6 +19,7 @@ mod optional_key_combo;
 mod page_keys;
 mod phrases;
 mod preedit_mode;
+mod retired;
 mod scheme;
 mod shift_letter;
 mod shortcut;

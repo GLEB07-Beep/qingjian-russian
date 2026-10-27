@@ -31,8 +31,14 @@ impl Settings {
 
     pub(super) fn reload(&mut self) {
         match Config::load(&self.path) {
-            Ok(config) => self.config = config,
-            Err(error) => tracing::error!(%error, "重读配置失败"),
+            Ok(config) => {
+                self.config = config;
+                self.config_error = None;
+            }
+            Err(error) => {
+                tracing::error!(%error, "重读配置失败");
+                self.config_error = Some(error.to_string());
+            }
         }
     }
 }
