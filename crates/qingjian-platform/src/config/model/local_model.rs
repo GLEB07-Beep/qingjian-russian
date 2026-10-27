@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LocalModel {
-    /// 含章·通变：按敲的拼音给整句重排，不读前文。
+    /// 含章·通变：按敲的拼音直接生成整句（造句、造词），够长的句子以它为主，不读前文。
     #[default]
     Tongbian,
 

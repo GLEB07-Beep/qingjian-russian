@@ -39,6 +39,16 @@ impl Engine {
             || self.rescorer.as_ref().is_some_and(RescoreWorker::is_alive)
     }
 
+    /// 接了打分器、且它是拿来重排词图路径的（不是生成器）。
+    pub(super) fn reranks_paths(&self) -> bool {
+        self.has_sentence_scorer() && !self.generative
+    }
+
+    /// 接了生成器（含章·通变）：整句以它生成的为主。
+    pub(in crate::engine) fn generates_sentences(&self) -> bool {
+        self.has_sentence_scorer() && self.generative
+    }
+
     /// 给模型看的前文：壳给了应用里的光标前文就用它（[`Self::set_rescoring_context`]），
     /// 否则用当前应用最近上屏的字符（太久没打的不算）；长度按 `neural_context` 截。
     pub(super) fn rescoring_context(&self) -> String {
@@ -61,7 +71,7 @@ impl Engine {
     /// `keys` 是这批路径共同解释的那段用户按键（P2C 的条件）。
     /// 只改顺序，每条路径的 `score` 原样不动（理由见下面的注释）。
     pub(super) fn rescore_paths(&self, paths: &mut [Conversion], keys: &str) {
-        if paths.len() < 2 || !self.has_sentence_scorer() {
+        if paths.len() < 2 || !self.reranks_paths() {
             return;
         }
         let context = self.rescoring_context();

@@ -167,6 +167,9 @@ pub struct Engine {
     /// 异步重打分：后台线程里的打分器，壳在停顿后送任务、轮询结果（见 [`rescoring`]）。
     rescorer: Option<rescoring::RescoreWorker>,
 
+    /// 接的打分器是生成器（[`SentenceScorer::generates`]，含章·通变）：整句以生成为主、不重排词图路径。
+    generative: bool,
+
     /// 「前文 + 整句文本 → 神经分」缓存，同步与异步打分共用。
     neural_cache: std::cell::RefCell<rescoring::NeuralCache>,
 
@@ -464,6 +467,10 @@ const ALTERNATE_MIN_SYLLABLES: usize = 4;
 /// 短于这么多字母的不让模型直接生成整句：那么短的输入词级候选够用，生成的几十毫秒不值。
 const MIN_GENERATED_LETTERS: usize = 6;
 
+/// 接了生成器时，拼音干净且至少这么多音节，生成的整句才排在词图前面；更短的词图在前（带着个人习惯），生成的排第二。
+/// 短输入上生成器不懂个人习惯，会盖掉用户常打的词；门槛怎么定的见 `docs/notes/crate-notes.md`（qingjian-core「生成器」）。
+const GENERATED_LEAD_MIN_SYLLABLES: usize = 6;
+
 /// 神经重打分的缺省权重 λ（见 `Engine::neural_weight`）：整句评测集上 0.5 到 1.0 一样好、0.75 最高（见 docs/notes/neural-rescoring.md），
 /// 取 0.5 给个人 n-gram 留余量；回放里看到的「λ 大整句掉」是那把尺子的偏差。
 pub const NEURAL_WEIGHT: f64 = 0.5;
@@ -502,6 +509,7 @@ impl Engine {
             language_model: Box::new(NoLanguageModel),
             sentence_scorer: None,
             rescorer: None,
+            generative: false,
             wake: rescoring::WakeSlot::default(),
             neural_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
             choice: None,

@@ -55,25 +55,44 @@ impl Engine {
                 // 词图读不通整段时模型直接生成的整句排在词图那几条前面：这时词图给的是把英文段
                 // 硬读成拼音的结果（`yongdockerbushuhenfangbian` → 用的哦乘客仍不熟很方便），排它前面没有可惜的
                 // `typos` 为假就是拼写纠错已经生效（见调用处），那时 `best` 是纠正后的切分
-                let generated: Vec<Candidate> = self
-                    .generated_sentence_candidates(best, keys, !typos)
-                    .into_iter()
-                    .filter(|g| {
-                        !items
-                            .iter()
-                            .chain(sentences.iter())
-                            .any(|c| c.text == g.text)
-                    })
-                    .collect();
-                let generated_count = generated.len();
-                for (offset, candidate) in generated.into_iter().enumerate() {
-                    items.insert((position + offset).min(items.len()), candidate);
+                // 接了生成器时拼音干净的输入也是生成的在前，没打完、纠正过的词图在前（见 `generated_sentence_candidates`）
+                let (generated, lead) =
+                    self.generated_sentence_candidates(best, keys, !typos, &sentences);
+                let mut sentences = sentences;
+                let mut ordered: Vec<Candidate> = Vec::new();
+                if !lead {
+                    // 词图没出整句时生成的跟在原来排第一的那个候选后面
+                    if !sentences.is_empty() {
+                        ordered.push(sentences.remove(0));
+                    } else if position < items.len() {
+                        ordered.push(items.remove(position));
+                    }
                 }
-                for (offset, plain) in sentences.into_iter().enumerate() {
-                    items.insert(
-                        (position + generated_count + offset).min(items.len()),
-                        plain,
-                    );
+                let mixed = !generated.is_empty();
+                // 生成的与词图的整句相同时用词图那条（带读音，上屏能学），但排在生成给的名次上
+                for g in generated {
+                    if items.iter().chain(ordered.iter()).any(|c| c.text == g.text) {
+                        continue;
+                    }
+                    match sentences.iter().position(|c| c.text == g.text) {
+                        Some(i) => ordered.push(sentences.remove(i)),
+                        None => ordered.push(g),
+                    }
+                }
+                ordered.extend(sentences);
+                if mixed {
+                    // 生成的加词图的整句一起最多 SENTENCE_CANDIDATES 条，不把第一页的词挤走（#769）
+                    let mut kept = 0;
+                    ordered.retain(|c| {
+                        if !matches!(c.kind, CandidateKind::Sentence | CandidateKind::Generated) {
+                            return true;
+                        }
+                        kept += 1;
+                        kept <= SENTENCE_CANDIDATES
+                    });
+                }
+                for (offset, candidate) in ordered.into_iter().enumerate() {
+                    items.insert((position + offset).min(items.len()), candidate);
                 }
             }
         }
@@ -380,7 +399,7 @@ impl Engine {
     ) -> Vec<Conversion> {
         let dictionaries = self.all_dictionaries();
         let expanded = self.expand_positions(patterns, typos);
-        let k = if self.has_sentence_scorer() {
+        let k = if self.reranks_paths() {
             RESCORE_PATHS.max(want)
         } else {
             want

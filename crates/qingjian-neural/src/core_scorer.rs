@@ -65,4 +65,8 @@ impl SentenceScorer for P2cScorer {
             }
         }
     }
+
+    fn generates(&self) -> bool {
+        true
+    }
 }

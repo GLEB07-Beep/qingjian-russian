@@ -347,6 +347,7 @@ impl Engine {
         margin: Option<f64>,
         context: Option<usize>,
     ) -> Self {
+        self.generative = scorer.generates();
         self.sentence_scorer = Some(scorer);
         self.rescorer = None;
         self.set_neural_parameters(weight, margin, context);
@@ -376,6 +377,7 @@ impl Engine {
     /// 运行时换 / 卸异步重打分器（壳里模型在后台加载完才接上，配置关掉就卸）。
     pub fn set_async_sentence_scorer(&mut self, scorer: Option<Box<dyn SentenceScorer>>) {
         self.sentence_scorer = None;
+        self.generative = scorer.as_ref().is_some_and(|s| s.generates());
         let wake = self.wake.clone();
         self.rescorer = scorer.map(|scorer| super::rescoring::RescoreWorker::spawn(scorer, wake));
         *self.neural_cache.borrow_mut() = super::rescoring::NeuralCache::default();

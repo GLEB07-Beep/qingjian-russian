@@ -46,7 +46,7 @@ fn description(model: LocalModel) -> &'static str {
     match model {
         LocalModel::Zhiyi => "按前文挑首选",
         LocalModel::Zhiwei => "按前文排整句",
-        LocalModel::Tongbian => "随安装包",
+        LocalModel::Tongbian => "按拼音造句，随安装包",
     }
 }
 
