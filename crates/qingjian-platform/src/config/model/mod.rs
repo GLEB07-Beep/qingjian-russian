@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LocalModelConfig {
-    /// 开着就加载模型、给整句重排。
+    /// 开着就加载模型、给整句重排或造句。缺省关：只按词库与语言模型排序，最快也最省电。
     pub enabled: bool,
 
     /// 用哪个模型。
@@ -29,7 +29,7 @@ pub struct LocalModelConfig {
 impl Default for LocalModelConfig {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: false,
             name: LocalModel::default(),
             zhiyi_tier: ZhiyiTier::default(),
             context_memory_seconds: qingjian_core::DEFAULT_FRESH_SECONDS,

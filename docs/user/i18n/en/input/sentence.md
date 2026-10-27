@@ -38,16 +38,17 @@ There's no correction with double pinyin or Wubi: a wrong key in double pinyin c
 
 ## Local sentence model
 
-Qingjian ships with a small model that reorders sentence candidates on your device so that the first one reads more naturally. It runs entirely offline: no network, nothing sent anywhere.
+The local sentence model is off by default: sentences are built from the dictionary only, which is fastest and uses the least power. To use it, turn on 本地整句模型 (Local sentence model) under 设置 → 候选 (Settings → Candidates). It then uses the bundled Hanzhang Tongbian, which writes whole sentences straight from the pinyin you typed on your device so that the first candidate for long sentences reads more naturally. It runs entirely offline: no network, nothing sent anywhere. The Windows version doesn't bundle Tongbian; to use a local model there, download Zhiyi under the experimental features below.
 
-- Pause briefly after typing (less than a tenth of a second) and the sentence candidate is replaced with the one the model finds more natural; until you pause, the sentence built from the dictionary is shown.
-- The model only adjusts sentence candidates; when the dictionary can't build a full sentence, it may fill one in. Word candidates and words you've picked before aren't affected, and your own habits still come first.
+- Pause briefly after typing (about a fifth of a second for long sentences) and the sentence candidate is replaced with the one the model finds more natural; until you pause, the sentence built from the dictionary is shown.
+- For long input (from about six characters), the sentence Tongbian writes comes first. For short input, when the last syllable isn't finished yet, or when a typo was corrected, the dictionary's sentence comes first and Tongbian's follows. It also fills in a sentence when you mix Chinese and English or the dictionary can't build a full one.
+- The model only adjusts sentence candidates. Word candidates and words you've picked before aren't affected, and your own habits still come first.
 - Once you've paged further or moved the highlight with the arrow keys, the model's result no longer replaces the page you're looking at.
 - For the first few seconds after the input method starts, the model is still loading and sentences come from the dictionary.
 - On older Macs (for example, macOS 14 without the required graphics features), the model runs on the processor instead and ranking may be a little slower.
 - The bundled model (Hanzhang Tongbian) looks only at the pinyin you typed; Zhiyi and Hanzhang Zhiwei from the experimental features also read the few dozen characters before the cursor. When an app doesn't share its text (some terminals and Electron apps), they use what you just typed in that text box instead: switching apps or text boxes starts over, and text older than a minute without typing no longer counts. That time is `context_memory_seconds` in the `[model]` section of the configuration file; 0 means always count it.
 
-If you don't want it, turn off 本地整句模型 (Local sentence model) under 设置 → 候选 (Settings → Candidates); ranking then uses the dictionary only. This doesn't affect AI services.
+To stop using it, turn 本地整句模型 (Local sentence model) under 设置 → 候选 (Settings → Candidates) off again; ranking goes back to the dictionary only. This doesn't affect AI services.
 To use your own model, see [Data files and logs](../advanced/data-files.md#Using-your-own-local-sentence-model).
 
 ### Experimental features
