@@ -9,8 +9,9 @@
 
 use candle_core::Tensor;
 
-use crate::vocab::{EOS, Vocab};
-use crate::{CharLm, NeuralError};
+use super::CharLm;
+use super::vocab::{EOS, Vocab};
+use crate::NeuralError;
 
 /// 一条候选。
 #[derive(Debug, Clone)]

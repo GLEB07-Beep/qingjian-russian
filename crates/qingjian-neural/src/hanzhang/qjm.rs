@@ -10,7 +10,8 @@ use std::path::{Path, PathBuf};
 use candle_core::safetensors::SliceSafetensors;
 use qingjian_format::{Kind, Metadata, Writer};
 
-use crate::{ModelConfig, NeuralError, Vocab};
+use super::{ModelConfig, Vocab};
+use crate::NeuralError;
 
 /// 单文件模型的扩展名。
 pub const EXTENSION: &str = "qjm";

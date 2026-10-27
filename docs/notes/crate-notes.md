@@ -216,7 +216,7 @@ rustls 与 `webpki-roots` 提到了工作区依赖，与 `qingjian-predict` 的 
 candle 加载 Transformer（GPT-2 风格 decoder，导出成
 `model.safetensors` + `config.json` + `vocab.json` 三件套）。features `accelerate` / `metal` 换后端，壳用 `metal`。
 Metal 缺少 `MTLResidencySetDescriptor`（如 macOS 14）时改用 CPU/F32，避免 candle 创建设备时 panic；支持该类时仍用 Metal/F16。
-CPU 上有 AVX2 + FMA 时 `CharLm` 把各层线性层与输出层量化成 int8（`model/q8_matrix.rs`，32 个一块各带缩放，与 Q8_0 同一种分块，输入留 f32），
+CPU 上有 AVX2 + FMA 时 `CharLm` 把各层线性层与输出层量化成 int8（`hanzhang/char_lm/q8_matrix.rs`，32 个一块各带缩放，与 Q8_0 同一种分块，输入留 f32），
 词嵌入留文件里的 f16、查完转 f32；没有这两条指令集的机器、设了 `QINGJIAN_NEURAL_DTYPE` 时照旧 f32。
 通变常驻 +112 → +36 MB，成绩不变、查询耗时持平。没用 candle 的 `QMatMul`：它的 x86 SIMD 按编译期 `target_feature` 选，
 缺省目标只有 SSE2，发行构建走标量（150 句平均 161 → 386 ms）；整个程序开 AVX2 又会让没有 AVX 的赛扬 / 奔腾银牌机器起不来，所以自己写一个运行时探测的。

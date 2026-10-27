@@ -5,9 +5,11 @@ use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use qingjian_format::{Container, Kind, Metadata};
 
-use crate::model::{PrefixCache, Q8Matrix};
-use crate::vocab::EOS;
-use crate::{CharLm, ModelConfig, NeuralError, Vocab, find_model, qjm};
+use super::char_lm::{PrefixCache, Q8Matrix};
+use super::vocab::EOS;
+use super::{CharLm, ModelConfig, Vocab, find_model, qjm};
+use crate::NeuralError;
+use crate::device::default_device;
 
 /// 加载好的模型 + 字表：给「前文 + 候选」打分。
 pub struct CharScorer {
@@ -230,21 +232,6 @@ fn weight_dtype(device: &Device) -> DType {
 /// 还更快；对比见 `docs/notes/crate-notes.md` 的 qingjian-neural 一节。
 fn quantizes(device: &Device) -> bool {
     device.is_cpu() && Q8Matrix::supported() && std::env::var("QINGJIAN_NEURAL_DTYPE").is_err()
-}
-
-#[cfg(not(feature = "metal"))]
-pub(crate) fn default_device() -> Result<Device, NeuralError> {
-    Ok(Device::Cpu)
-}
-
-#[cfg(feature = "metal")]
-pub(crate) fn default_device() -> Result<Device, NeuralError> {
-    // candle-metal 在创建设备时会使用此类；旧版 macOS 缺少它会直接 panic。
-    if objc2::runtime::AnyClass::get(c"MTLResidencySetDescriptor").is_none() {
-        tracing::warn!("系统不支持 Metal residency set，本地模型改用 CPU");
-        return Ok(Device::Cpu);
-    }
-    Ok(Device::new_metal(0)?)
 }
 
 #[cfg(test)]

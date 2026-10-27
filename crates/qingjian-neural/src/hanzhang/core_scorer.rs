@@ -1,6 +1,6 @@
 use qingjian_core::sentence::SentenceScorer;
 
-use crate::{CharScorer, P2c};
+use super::{CharScorer, P2c};
 
 /// 有一条路径带字表外的字就整批不打：那个字只能当 `<unk>` 算，分低得离谱，重排会把它所在的路径一律压下去
 ///（通变的字表没有 嗯，`enen` 永远排成 恩恩）。不打分时调用方保留静态排序。

@@ -9,7 +9,7 @@ pub use prefix_cache::PrefixCache;
 use candle_core::{D, DType, Device, Module, Result, Tensor};
 use candle_nn::{Embedding, LayerNorm, VarBuilder, layer_norm, ops};
 
-use crate::ModelConfig;
+use super::ModelConfig;
 use projection::Projection;
 
 pub(crate) use q8_matrix::Q8Matrix;
