@@ -194,6 +194,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
                 .map(|dir| qingjian_update::Checker::new(dir.join(UPDATE_STATE_FILE), version)),
             update_status: UpdateStatus::default(),
             session: Session::default(),
+            trace: None,
             sentence: None,
             anchor: NSRect::ZERO,
         })

@@ -16,6 +16,7 @@ mod rescore;
 mod schemes;
 mod session;
 mod status;
+mod trace;
 mod translate;
 
 use std::collections::HashMap;
@@ -24,6 +25,7 @@ use std::time::{Duration, Instant};
 
 use qingjian_core::candidate::arrows::Focus;
 use qingjian_core::{Engine, Grid};
+use qingjian_platform::logs::CompositionTrace;
 use qingjian_platform::protocol::{
     ClientMessage, Frame, IndicatorState, InputSettings, ScreenRect, ServerMessage, SessionId,
 };
@@ -159,6 +161,9 @@ pub struct Router {
 
     /// 键位提示「卡住时显示」的进行态。
     key_hint: KeyHintState,
+
+    /// 正在进行的这段组句的按键账；没在组句为 `None`。
+    trace: Option<CompositionTrace>,
 }
 
 impl Router {
@@ -195,6 +200,7 @@ impl Router {
             last_shown: None,
             panel: None,
             last_panel: None,
+            trace: None,
             model_dirs: ModelDirs::default(),
             bundled_schemes: None,
             scheme_slot: SchemeSlot::default(),
@@ -253,7 +259,7 @@ impl Router {
 
     /// 处理一条消息；`None` 表示不用回话。到点顺带把学习数据落盘。
     pub fn handle(&mut self, message: ClientMessage) -> Option<ServerMessage> {
-        let response = self.dispatch(message);
+        let response = self.traced(message);
         if self.last_flush.elapsed() >= LEARNING_FLUSH_INTERVAL {
             self.flush_learning();
         }

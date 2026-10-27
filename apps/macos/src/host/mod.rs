@@ -32,6 +32,7 @@ use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, PanelUsage, UsageStats, VocabularyBook};
 use qingjian_lm::BigramModel;
 use qingjian_platform::extra_dictionaries;
+use qingjian_platform::logs::CompositionTrace;
 use qingjian_platform::{
     Appearance, AppsConfig, AuxCodeConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_ON,
     DictionariesConfig, GeneralConfig, HighlightKeys, KeyCombo, KeyHintMode, LEARNING_LANGUAGE_OFF,
@@ -242,6 +243,9 @@ pub struct Host {
 
     /// 当前会话的候选、高亮、页码、preedit。
     pub session: Session,
+
+    /// 正在进行的这段组句的按键账；没在组句为 `None`。
+    pub trace: Option<CompositionTrace>,
 
     /// 组句中到达的整句补全，Tab 接受。
     pub sentence: Option<String>,
