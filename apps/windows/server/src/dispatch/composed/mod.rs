@@ -615,15 +615,20 @@ fn empty_cell() -> Candidate {
     }
 }
 
-/// 候选窗口顶部的拼音行：带调拼音开着、高亮候选读得出声调时换成它的读音，与行内拼音相同时不另给。
+/// 候选窗口顶部的拼音行：双拼「候选窗显示按键」开着时是敲的键；带调拼音开着、高亮候选读得出声调时换成它的读音；
+/// 与行内拼音相同时不另给。
 fn window_parts(
     engine: &Engine,
     query: &Query,
     candidate: Option<&Candidate>,
     preedit: &[PreeditSegment],
 ) -> Option<Box<(Vec<PreeditSegment>, usize)>> {
-    let toned = engine.toned_syllables(candidate?)?;
-    let (segments, cursor) = query.window_segments(Some(&toned));
+    let (segments, cursor) = if query.shuangpin_raw_window {
+        query.window_segments(None)
+    } else {
+        let toned = engine.toned_syllables(candidate?)?;
+        query.window_segments(Some(&toned))
+    };
     let segments: Vec<PreeditSegment> = segments.iter().map(Into::into).collect();
     (segments != preedit).then(|| Box::new((segments, cursor)))
 }

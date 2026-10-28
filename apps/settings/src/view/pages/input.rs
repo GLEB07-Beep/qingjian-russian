@@ -49,11 +49,22 @@ pub fn input(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             ui,
             page,
             "输入框显示按键",
-            Some("输入框里显示敲的字母，候选窗口里照旧是全拼"),
+            Some("应用的输入框里显示敲的字母，关着显示全拼"),
             ("general", "shuangpin_raw_preedit"),
             general.shuangpin_raw_preedit,
             false,
         )?);
+        if Feature::ShuangpinRawWindow.here() {
+            rows.push(toggle_info(
+                ui,
+                page,
+                "候选窗显示按键",
+                Some("候选窗口顶部的拼音行显示敲的字母，关着显示全拼"),
+                ("general", "shuangpin_raw_window"),
+                general.shuangpin_raw_window,
+                false,
+            )?);
+        }
     }
     rows.push(toggle_info(
         ui,

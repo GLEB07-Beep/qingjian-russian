@@ -50,11 +50,13 @@ pub enum Feature {
     ExperimentalModels,
     /// 中文组句中的小键盘数字：选候选还是进组句。
     NumpadDigit,
+    /// 双拼候选窗口的拼音行显示敲的键。
+    ShuangpinRawWindow,
 }
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 24] = [
         Self::AuxCode,
         Self::Schemes,
         Self::SwitchKeys,
@@ -78,6 +80,7 @@ impl Feature {
         Self::ShowTones,
         Self::ExperimentalModels,
         Self::NumpadDigit,
+        Self::ShuangpinRawWindow,
     ];
 
     /// 当前平台显示这一项。
@@ -128,6 +131,8 @@ impl Feature {
             // Windows、Linux 的服务进程还没接知意；没有 GPU 时 CPU 上打分要发烫，先只开 macOS（Metal）
             Self::ExperimentalModels => [Yes, Yes, Todo],
             Self::NumpadDigit => [Todo, Yes, Todo],
+            // Fcitx 面板与应用里的行内拼音共用一串，还没分开
+            Self::ShuangpinRawWindow => [Yes, Yes, Todo],
         }
     }
 
@@ -158,6 +163,7 @@ impl Feature {
             Self::ShowTones => "拼音行显示声调",
             Self::ExperimentalModels => "实验功能（知意、含章·通变）",
             Self::NumpadDigit => "小键盘数字",
+            Self::ShuangpinRawWindow => "双拼候选窗显示按键",
         }
     }
 
@@ -190,6 +196,7 @@ impl Feature {
             Self::KeyHint => &[(PageId::Input, "键位提示")],
             Self::ShowTones => &[(PageId::Candidates, "拼音行显示声调")],
             Self::NumpadDigit => &[(PageId::Candidates, "小键盘数字")],
+            Self::ShuangpinRawWindow => &[(PageId::Input, "候选窗显示按键")],
             Self::SwitchKeyCombos
             | Self::SystemCtrlSpace
             | Self::EnglishPunctuation

@@ -58,6 +58,15 @@ impl Engine {
         self.shuangpin_raw_preedit
     }
 
+    /// 换双拼候选窗口拼音行的显示形式：开着时显示原始按键，关着（缺省）展开成全拼。
+    pub fn set_shuangpin_raw_window(&mut self, enabled: bool) {
+        self.shuangpin_raw_window = enabled;
+    }
+
+    pub fn shuangpin_raw_window(&self) -> bool {
+        self.shuangpin_raw_window
+    }
+
     /// 挂上辅码码表（用户导入的与随包的笔画表）。照 [`Self::set_extra_dictionaries`] 的模式：壳按目录与配置装配。
     pub fn with_aux_codes(mut self, tables: Vec<Arc<dyn AuxCodeLookup>>) -> Self {
         self.aux_codes = tables;

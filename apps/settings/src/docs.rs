@@ -19,6 +19,12 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "input/fuzzy-and-shuangpin",
         "双拼",
     ),
+    (
+        PageId::Input,
+        "候选窗显示按键",
+        "input/fuzzy-and-shuangpin",
+        "双拼",
+    ),
     (PageId::Input, "形码", "input/wubi", "开启"),
     (
         PageId::Input,
@@ -332,7 +338,7 @@ mod tests {
             std::env::temp_dir().join(format!("qingjian-settings-docs-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("config.toml");
-        // 选一种双拼：「输入框显示按键」只在双拼时建出来
+        // 选一种双拼：「输入框显示按键」「候选窗显示按键」只在双拼时建出来
         let shuangpin = qingjian_platform::Scheme::ALL[1];
         qingjian_platform::Config::set_value(&path, "general", "scheme", shuangpin.key()).unwrap();
         let settings = crate::settings::Settings::load(path);

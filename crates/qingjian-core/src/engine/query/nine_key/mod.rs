@@ -80,6 +80,7 @@ impl Engine {
             rest,
             decoded_keys: true,
             shuangpin_raw_preedit: false,
+            shuangpin_raw_window: false,
             typed_display,
             typed_case: None,
             pinyin_choices,

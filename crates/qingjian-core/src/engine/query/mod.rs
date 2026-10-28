@@ -51,6 +51,7 @@ impl Engine {
                     self.composition.cursor(),
                     self.shuangpin.is_some() || self.zhuyin,
                     self.shuangpin.is_some() && self.shuangpin_raw_preedit,
+                    self.shuangpin.is_some() && self.shuangpin_raw_window,
                     self.composition.scope(),
                     self.marked_rest(self.composition.rest()),
                 )

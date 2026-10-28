@@ -109,6 +109,7 @@ impl Engine {
             rest,
             decoded_keys: false,
             shuangpin_raw_preedit: false,
+            shuangpin_raw_window: false,
             typed_display: None,
             typed_case: None,
             pinyin_choices: Vec::new(),
