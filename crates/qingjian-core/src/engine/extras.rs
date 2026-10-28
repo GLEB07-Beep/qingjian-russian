@@ -296,10 +296,9 @@ fn insert_following(
         };
         let fresh: Vec<String> = table
             .lookup(&key)
-            .iter()
-            .filter(|entry| !items.iter().any(|c| &c.text == *entry))
+            .filter(|entry| !items.iter().any(|c| c.text == *entry))
             .take(per_word)
-            .cloned()
+            .map(str::to_owned)
             .collect();
         if fresh.is_empty() {
             continue;
