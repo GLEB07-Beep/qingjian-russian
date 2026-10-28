@@ -140,7 +140,7 @@ english_candidates_on = [
 macro_rules! template_apps {
     () => {
         r#"[apps]
-# 按应用改行为，条目是 bundle identifier（`*` 结尾按前缀匹配）。开着「详细日志」时切到一个应用会把它的 bundle identifier 记进日志
+# 按应用改行为，条目是 bundle identifier（`*` 结尾按前缀匹配）。切到一个应用时运行日志里会记下它的 bundle identifier
 # 英文模式（Caps Lock）下给候选的应用（白名单）：浏览器、聊天、办公与笔记这类写成段文字的地方。没列的应用里英文字母原样交给应用，
 # 免得挡住终端 / 编辑器自己的补全，或吞掉设计、3D 软件的单键快捷键。写成 ["*"] 就处处都给，再用 english_candidates_off 排除个别应用
 english_candidates_on = [

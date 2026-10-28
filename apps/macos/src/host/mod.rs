@@ -31,6 +31,7 @@ use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, PanelUsage, UsageStats, VocabularyBook};
 use qingjian_lm::BigramModel;
 use qingjian_platform::extra_dictionaries;
+use qingjian_platform::logs::CompositionTrace;
 use qingjian_platform::{
     Appearance, AppsConfig, AuxCodeConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_ON,
     DictionariesConfig, GeneralConfig, HighlightKeys, KeyCombo, KeyHintMode, LEARNING_LANGUAGE_OFF,
@@ -56,7 +57,7 @@ pub use init::init;
 use mode::{ModeOsd, ModeSwitch};
 use model::RescoreMonitor;
 pub use presenting::TranslationJob;
-use presenting::{KeyHintState, Notice};
+use presenting::{CandidateTranslation, KeyHintState, Notice};
 pub use session::Session;
 
 pub struct Host {
@@ -174,6 +175,9 @@ pub struct Host {
     /// 在飞的按需联想请求序号：结果到了排在第一页最前面，自动联想的照旧补在末尾。
     manual_prediction: Option<u64>,
 
+    /// 用户从候选菜单发起、正在等待的模型译文生成。
+    candidate_translation: Option<CandidateTranslation>,
+
     /// 进行中的「翻译选中文字」；有它时候选窗口显示的是译文（或「翻译中…」），按键先归它处理。
     pub translation: Option<TranslationJob>,
 
@@ -240,6 +244,9 @@ pub struct Host {
 
     /// 当前会话的候选、高亮、页码、preedit。
     pub session: Session,
+
+    /// 正在进行的这段组句的按键账；没在组句为 `None`。
+    pub trace: Option<CompositionTrace>,
 
     /// 组句中到达的整句补全，Tab 接受。
     pub sentence: Option<String>,

@@ -18,12 +18,14 @@ use crate::candidates::Preedit;
 use crate::host;
 use crate::menubar;
 
+mod candidate_editor;
 mod click;
 mod command;
 mod commit;
 mod display;
 mod panel;
 mod text;
+mod trace;
 mod translate;
 
 pub use click::{click, menu_items, menu_pick, panel_mouse};
@@ -63,7 +65,13 @@ define_class!(
                 (Some(event), Some(client)) => {
                     let client = TextClient::new(client);
                     // panic 拦下后把缓冲区原样上屏，这个按键交还给应用
-                    catch_panic("handleEvent", || self.dispatch_event(event, client))
+                    catch_panic("handleEvent", || {
+                        if event.r#type() == NSEventType::KeyDown {
+                            self.dispatch_traced(event, client)
+                        } else {
+                            self.dispatch_event(event, client)
+                        }
+                    })
                         .unwrap_or_else(|| {
                             recover_from_panic(Some(client));
                             false
@@ -88,6 +96,7 @@ define_class!(
                 if let Some(client) = client {
                     self.commit_raw(client);
                 }
+                self.end_trace("commit-request", true);
                 host::with(|h| {
                     h.cancel_prediction();
                     h.window.hide();
@@ -112,10 +121,10 @@ define_class!(
                     let _: () =
                         unsafe { msg_send![sender, overrideKeyboardWithKeyboardNamed: &*layout] };
                 }
-                // 用户要往 [apps] 里加应用时，从这条日志抄 bundle identifier
+                // 用户要往 [apps] 里加应用时，从这条日志抄 bundle identifier；排查应用兼容问题也靠它，所以缺省级别就记
                 let bundle = sender.and_then(|s| TextClient::new(s).bundle_identifier());
                 if let Some(bundle) = &bundle {
-                    tracing::debug!(%bundle, "当前应用");
+                    tracing::info!(%bundle, "当前应用");
                 }
                 host::with(|h| {
                     h.engine.set_application(bundle);
@@ -160,6 +169,7 @@ define_class!(
                 if let Some(client) = client {
                     self.commit_raw(client);
                 }
+                self.end_trace("focus-out", true);
                 // 切换输入源时无论如何都收掉候选框，不能留一个孤儿窗口在屏幕上
                 host::with(|h| {
                     h.cancel_prediction();
@@ -342,9 +352,11 @@ impl QingjianInputController {
         {
             let (first, second) = host::with(|h| h.translation_keys).unwrap_or_default();
             if pressed == first {
+                tracing::info!(digit, sense = 0, "译词快捷键命中");
                 return self.handle_translation_key(digit, 0, client);
             }
             if pressed == second {
+                tracing::info!(digit, sense = 1, "译词快捷键命中");
                 return self.handle_translation_key(digit, 1, client);
             }
         }
