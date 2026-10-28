@@ -207,7 +207,6 @@ fn main() {
         bundled_codes_dir: bundled_codes_dir.clone(),
         bundled_schemes_dir: dispatch::find_bundled_schemes(&root),
         aux_code: config.aux_code.clone(),
-        levels_dir: Some(root.join("assets/levels")),
         user_dir: user_dir(),
         input_log: config.general.input_log,
         ..AssemblySpec::new(&dict)

@@ -52,7 +52,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         language_model: LanguageModelFiles::find(&root.join("data/generated")),
         bundled_dicts_dir: Some(root.join("data/generated/dicts")),
         dictionaries: config.dictionaries.clone(),
-        levels_dir: Some(root.join("assets/levels")),
         user_dir: Some(user_dir.clone()),
         input_log: config.general.input_log,
         log_dir: Some(paths::log_dir()),
