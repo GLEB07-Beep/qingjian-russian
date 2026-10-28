@@ -170,7 +170,7 @@ fn main() {
     let _log_guard = init_logging(&config);
     #[cfg(windows)]
     let Some(_instance) = qingjian_windows_server::ipc::instance::Instance::acquire() else {
-        tracing::info!("已有一个 qingjian-server 在运行，本进程退出");
+        tracing::info!("another qingjian-server is already running, exiting");
         return;
     };
     match template {
