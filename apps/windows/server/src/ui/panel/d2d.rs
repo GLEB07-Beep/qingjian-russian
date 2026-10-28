@@ -54,7 +54,7 @@ impl Direct2D {
         let factory: ID2D1Factory =
             unsafe { D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, None) }?;
         let write: IDWriteFactory = unsafe { DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED) }?;
-        // 软件渲染：硬件类型要起 D3D 设备，显卡驱动一初始化就常驻二三十 MB 私有内存，而面板只在打开时画一小块。
+        // 软件渲染：硬件类型要起 D3D 设备，显卡驱动一初始化就常驻一大块私有内存，而面板只在打开时画一小块。
         // dpi 96：一个 DIP 就是一个物理像素，尺寸都由我们按 DPI 算好
         let properties = D2D1_RENDER_TARGET_PROPERTIES {
             r#type: D2D1_RENDER_TARGET_TYPE_SOFTWARE,

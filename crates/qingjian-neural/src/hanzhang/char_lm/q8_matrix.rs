@@ -1,9 +1,9 @@
 //! 按 32 个一块量化成 int8 的权重矩阵（与 GGML 的 Q8_0 同一种分块：每块一个缩放 = 块内最大绝对值 / 127），
 //! 乘的时候输入留 f32，权重逐行还原成浮点再做 FMA。
 //!
-//! 不用 candle 的 `QMatMul`：它的 x86 SIMD 按编译期的 `target_feature` 选，缺省目标只有 SSE2，
-//! Windows / Linux 的发行构建走标量，通变一次查询从 161 ms 涨到 386 ms；整个程序开 AVX2 又会让没有 AVX 的
-//! 赛扬 / 奔腾银牌机器起不来。这里运行时探测，有 AVX2 + FMA 才用（[`Q8Matrix::supported`]），否则调用方留 f32。
+//! 不用 candle 的 `QMatMul`：它的 x86 SIMD 按编译期的 `target_feature` 选，缺省目标只有 SSE2，发行构建走标量，比 f32 还慢；
+//! 整个程序开 AVX2 又会让没有 AVX 的赛扬 / 奔腾银牌机器起不来。这里运行时探测，有 AVX2 + FMA 才用
+//! （[`Q8Matrix::supported`]），否则调用方留 f32。对比数字见 `docs/notes/crate-notes.md` 的 qingjian-neural 一节。
 
 use rayon::prelude::{IndexedParallelIterator, ParallelIterator, ParallelSliceMut};
 

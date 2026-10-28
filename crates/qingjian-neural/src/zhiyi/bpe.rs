@@ -2,8 +2,8 @@
 //!
 //! 照 `tokenizers` 对这份配置的行为：先按附加词（`added_tokens`，取最左最长，`lstrip` 吞掉左边的空白）切开，
 //! 其余各段空格换成 `▁`、段首不是 `▁` 就补一个、在每个 `▁` 前断开，逐段从单字起按合并表的名次合并；
-//! 词表里没有的字拆成 `<0xXX>` 字节。用 `tokenizers` 本身要多占 60 多 MB、加载时峰值多出 300 MB
-//! （25.6 万词、58 万条合并规则的通用结构），这里只留编码要的两张表。与 `tokenizers` 对拍见 `tests.rs`。
+//! 词表里没有的字拆成 `<0xXX>` 字节。不用 `tokenizers`：它给 25.6 万词、58 万条合并规则建的通用结构常驻与加载峰值都大得多
+//! （数字见 crate-notes），这里只留编码要的两张表。与 `tokenizers` 对拍见 `tests.rs`。
 
 use std::borrow::Cow;
 use std::collections::HashMap;
