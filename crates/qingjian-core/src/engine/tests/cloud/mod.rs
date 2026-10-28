@@ -1,5 +1,7 @@
 //! 云联想 / 问字 / 翻译请求。
 
+mod trigger;
+
 use super::*;
 
 #[test]

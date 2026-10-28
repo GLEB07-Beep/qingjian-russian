@@ -190,7 +190,7 @@ Windows 的 `Router::recompose` 在输入清空时调用 `Engine::cancel_predict
 - `CloudGlossFiller`：释义兜底（Core `GlossFiller` trait，与 Predictor 分开的线程与通道，攒 1.5 秒 / 8 个词发一次，问过不再问）：
   随包释义表没有的词库词 / 云端词上屏后入队，结果壳每秒 `Engine::poll_glosses` 经 `Translator::learn` 写进 `qingjian-translate::PersonalGlossary`
   （`user-glossary-<语言>.tsv`，`LayeredTranslator` 个人表优先）；随云联想开关一起开。
-  同一个 Filler 另起一条整段翻译线程（`gloss/phrase_worker.rs`，提示词 `phrase_prompt.rs`，攒 5 秒 / 10 段，本进程内同一段不重复翻）：生词本时间线用，整句等没有现成译词的上屏中文经 `GlossFiller::translate` 入队，`poll_translations` 取回 `Encounter`。
+  同一个 Filler 另起一条整段翻译线程（`gloss/phrase/worker.rs`，提示词 `phrase/prompt.rs`，攒 5 秒 / 10 段，本进程内同一段不重复翻）：生词本时间线用，整句等没有现成译词的上屏中文经 `GlossFiller::translate` 入队，`poll_translations` 取回 `Encounter`。
   云释义的系统 prompt 在 `gloss/prompt.rs` 按学习语言分派：德语臂 `GERMAN_SYSTEM_PROMPT` 要求名词带冠词 der/die/das 且首字母大写、动词用不定式；
   返回译文经 `clean_text` 按语言设限，德语臂上限 40 字符（`MAX_GERMAN_CHARS`，西语臂 32），字符白名单 `is_latin_ext_char` 为西 / 德共用
   （拉丁扩展区间 0x00C0–0x024F，汉字与西里尔字母不收）。
@@ -350,7 +350,7 @@ Common Crawl、CSL、SkyPile、C4 的统计），可按 GPL-3.0-or-later 使用�
 同 id 的用户方案盖过随包的，老位置 `wubi/wubi86.tsv` 只换随包五笔的码表。
 `shuangpin_schemes`：用户双拼方案的发现，与形码共用 `schemes/` 目录与 id 规则，`scheme.toml` 写 `type = "shuangpin"` 的才算（形码那边见到它跳过）；
 `base` 拿内置方案当底子，`[initials]` / `[finals]` / `[zero]` 按键（零声母按音节）整条替换。内置九套仍编在 Core 里：回放与 CLI 不依赖外部文件，日志里的 `xiaohe` 永远是同一套键位。
-`SchemeSlot`（`scheme_slot.rs`）是壳持有的「装着哪套」，两侧一起装：每次配置热加载都按配置重新找方案，但形码方案（含规则）与码表文件的修改时间、长度都没变时不重读码表——
+`SchemeSlot`（`scheme/slot.rs`）是壳持有的「装着哪套」，两侧一起装：每次配置热加载都按配置重新找方案，但形码方案（含规则）与码表文件的修改时间、长度都没变时不重读码表——
 热加载多半是改了别的设置，8.9 万条每次重读是白花的；只改了 `[code.<id>]` 的规则走 `Engine::set_code_rules`，也不重读。
 双拼键位表很小，每次重读、变了才换进引擎。`SchemeSlot::apply` 直接收 `&Config`，三条输入（拼音侧、形码 id、规则）都从配置取。
 id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为输入日志把两侧拼成 `<拼音>+<形码键>`，86 五笔的日志键沿用 `wubi`（`CodeSchemeEntry::log_key`）。
@@ -492,7 +492,7 @@ PKG_CONFIG_PATH="$onig" PKG_CONFIG_ALLOW_CROSS=1 RUSTONIG_SYSTEM_LIBONIG=1 \
   `reasoning_effort` 缺省 `none`，DeepSeek V4 默认思考，不关正文为空）；模糊音 `[fuzzy]` 默认都关；`[general]` 学习语言（`off` 不显示译文）/ 每页候选数 / 翻页键 / 外观 / 竖排横排 / 拼音显示位置 /
   英文模式候选开关 / 中文优先 `chinese_first` / 中文模式英文词 `english_in_chinese`（`Engine::set_english_in_chinese`）/ emoji 候选 `emoji`（`Engine::set_emoji_candidates`）/ 中西文自动空格 `auto_space`（直通字符经 `text.rs` 的 `pass_through`，开着时首键也读光标前文）/ 双拼方案 `shuangpin`（小鹤 / 自然码 / 微软 / 搜狗 / 智能ABC / 小浪 / 首道 / 拼音加加，空为全拼）/ 日志级别 `log_level`（缺省 info 不含敲的内容，debug 逐键记，热切换）/ 输入日志 `input_log`；
   `[shortcut]` 中英切换键 `switch_mode`（macOS 只认 `shift`：缺省 `[]` 用 Caps Lock 切；勾上后单击 Shift 切中英、Caps Lock 只管大小写，`control` / `ctrl+alt+space` 忽略；
-  切换时右上角弹 `host/mode_osd.rs` 的提示，组句中切到英文还会把拼音原样上屏，见 `host/mode_switch.rs` 与 `imk/controller/click.rs::commit_raw_after_switch`；
+  切换时右上角弹 `host/mode/osd.rs` 的提示，组句中切到英文还会把拼音原样上屏，见 `host/mode/switch.rs` 与 `imk/controller/click.rs::commit_raw_after_switch`；
   单击的边沿用修饰键事件（`IMKInputController` 的 `recognizedEvents:` 声明 `NSKeyDownMask | NSFlagsChangedMask`——缺省只回 `NSKeyDownMask`，
   实测就只有 keyDown 送进来、Shift 的按下 / 抬起完全收不到，那时只能靠 30 ms 轮询采样、整拍跨越的快点会漏掉）、模式键 v / u、`question_mark`（缺省关，开了空缓冲区敲 `?` 进问字）、上屏第一 / 第二个译词的修饰键 `translation` / `translation_second`、翻译选中文字 `translate_selection`（Linux 缺省 Alt+Shift+T）；
   `[apps] english_candidates_on` 按应用标识列出英文模式给候选的应用（白名单，缺省浏览器 / 聊天 / 办公 / 笔记，`*` 前缀匹配，`["*"]` 处处都给），`english_candidates_off` 从中排除；

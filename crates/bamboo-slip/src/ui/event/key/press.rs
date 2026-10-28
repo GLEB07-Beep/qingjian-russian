@@ -1,6 +1,7 @@
 //! 一次按键：键与修饰键。
 
-use super::{KeyCode, Modifiers};
+use super::KeyCode;
+use crate::ui::Modifiers;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyPress {

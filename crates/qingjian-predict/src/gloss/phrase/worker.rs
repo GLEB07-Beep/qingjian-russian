@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use qingjian_core::{Encounter, Language};
 
-use super::phrase_prompt;
+use super::prompt;
 use crate::chat_client::ChatClient;
 use crate::error::PredictError;
 use crate::suspension::Suspension;
@@ -111,16 +111,16 @@ impl PhraseWorker {
             self.forget(language, &texts);
             return;
         }
-        let system = phrase_prompt::system_prompt(language);
-        let user = phrase_prompt::user_prompt(&texts);
+        let system = prompt::system_prompt(language);
+        let user = prompt::user_prompt(&texts);
         match runtime.block_on(self.client.chat(
             &system,
             &user,
             MAX_TOKENS,
-            &phrase_prompt::reply_schema(language),
+            &prompt::reply_schema(language),
         )) {
             Ok(content) => {
-                let translated = phrase_prompt::parse_reply(&content, language, &texts);
+                let translated = prompt::parse_reply(&content, language, &texts);
                 tracing::info!(
                     language = language.code(),
                     asked = texts.len(),

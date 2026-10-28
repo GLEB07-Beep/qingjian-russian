@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use crate::imk::modifiers;
 
-use super::Host;
+use crate::host::Host;
 
 /// 切换之后这么久内的 Shift 边沿都不算：有些外接键盘松开 Shift 后 8–10 ms 又补一对按下 / 抬起，
 /// 不挡的话一次单击会切过去又切回来。人手连按两次在 200 ms 以上。

@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use qingjian_dictionary::Dictionary;
 
-use super::SAMPLE;
+use crate::engine::tests::SAMPLE;
 use crate::engine::{Engine, Prediction, PredictionPolicy, PredictionRequest, Predictor};
 
 #[derive(Default)]
@@ -149,7 +149,7 @@ fn unavailable_local_translation_never_falls_back_to_cloud() {
     let cloud = Arc::new(Mutex::new(Requests::default()));
     let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
         .with_predictor(Box::new(ManualPredictor(cloud.clone())));
-    engine.set_translation_predictor(Some(Box::new(super::super::NoPredictor)));
+    engine.set_translation_predictor(Some(Box::new(crate::engine::NoPredictor)));
     assert!(!engine.translation_enabled());
     assert!(engine.request_translation("本机内容").is_none());
     assert!(cloud.lock().unwrap().submitted.is_empty());

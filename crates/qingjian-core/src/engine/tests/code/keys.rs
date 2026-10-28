@@ -2,8 +2,8 @@
 
 use qingjian_dictionary::CodeTable;
 
-use super::code::{CODES, wubi};
 use super::*;
+use super::{CODES, wubi};
 
 /// 只用形码、两条规则都开着。码表里多加两条同码的 工 / 式，满码也不唯一；
 /// 再加一条写错的 5 码（极点码表里真有），满码仍是 4。

@@ -4,7 +4,7 @@ use qingjian_core::{Encounter, Language};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::prompt::is_kana;
+use crate::gloss::prompt::is_kana;
 use crate::reply::{self, ReplySchema};
 
 /// 一段译文最长几个字符：再长多半是模型在解释。

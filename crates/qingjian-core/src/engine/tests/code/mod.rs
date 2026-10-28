@@ -1,5 +1,7 @@
 //! 形码（五笔）：编码直接查码表，不走拼音的切分与整句。
 
+mod keys;
+
 use qingjian_dictionary::CodeTable;
 
 use super::*;
@@ -64,7 +66,7 @@ fn looks_up_by_code_prefix_and_prefers_the_finished_code() {
 fn first_level_codes_match_the_wubi_86_key_chart() {
     // 86 五笔 A–Y 的一级简码必须是首选，不能被同码高词频单字挤下去。
     let table = CodeTable::parse(include_str!(
-        "../../../../../assets/schemes/wubi86/table.tsv"
+        "../../../../../../assets/schemes/wubi86/table.tsv"
     ))
     .unwrap();
     let mut engine = engine();

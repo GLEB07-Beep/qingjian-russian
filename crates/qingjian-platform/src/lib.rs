@@ -15,8 +15,7 @@ pub mod logs;
 pub mod model_words;
 pub mod protocol;
 pub mod resources;
-mod scheme_meta;
-mod scheme_slot;
+mod scheme;
 pub mod shuangpin_schemes;
 
 pub use config::{
@@ -30,5 +29,4 @@ pub use config::{
     SwitchKeys, UpdateChannel, UpdateConfig, ZhiyiTier, scheme_label, scheme_name,
 };
 pub use error::ConfigError;
-pub use scheme_meta::SchemeMeta;
-pub use scheme_slot::SchemeSlot;
+pub use scheme::{SchemeMeta, SchemeSlot};

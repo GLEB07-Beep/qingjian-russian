@@ -2,18 +2,20 @@
 //! 说明是浮层（[`crate::Ui::overlay`]），不被滚动区裁掉；位置贴着 ⓘ 上一帧的位置，第一帧不出。
 //! 带链接的（[`info_with_link`]）点一下（或聚焦时按空格）产出消息，说明末尾多一行次要色的提示。
 
+mod mark;
+
 use std::hash::Hash;
 use std::sync::Arc;
 
 use taffy::{LengthPercentageAuto, NodeId, Position, Rect, Size, Style};
 
-use super::WidgetTheme;
-use super::info_mark::InfoMark;
-use super::paragraph::paragraph;
-use super::parts::{centered, column, focus_ring, padding, solid};
 use crate::error::RenderError;
 use crate::scene::{Effect, EffectKind, Visual};
 use crate::ui::{Interact, Ui};
+use crate::widgets::WidgetTheme;
+use crate::widgets::paragraph::paragraph;
+use crate::widgets::parts::{centered, column, focus_ring, padding, solid};
+use mark::InfoMark;
 
 /// 说明最宽多少（点），再长就折行。
 const MAX_WIDTH: f32 = 280.0;
