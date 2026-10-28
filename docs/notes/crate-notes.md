@@ -225,6 +225,9 @@ CPU 上有 AVX2 + FMA 时 `CharLm` 把各层线性层与输出层量化成 int8�
 词嵌入留文件里的 f16、查完转 f32；没有这两条指令集的机器、设了 `QINGJIAN_NEURAL_DTYPE` 时照旧 f32。
 通变常驻 +112 → +36 MB，成绩不变、查询耗时持平。没用 candle 的 `QMatMul`：它的 x86 SIMD 按编译期 `target_feature` 选，
 缺省目标只有 SSE2，发行构建走标量（150 句平均 161 → 386 ms）；整个程序开 AVX2 又会让没有 AVX 的赛扬 / 奔腾银牌机器起不来，所以自己写一个运行时探测的。
+`CharLm` 的公开方法都在一个最多 4 线程的专用 rayon 池里跑（`hanzhang/char_lm/threads.rs`）：用全局池时 20 线程的机器上通变打字时 Server 平均占整机 26%、最高 54%，
+多出来的几乎全是线程空转；限 4 线程后生成平均 163 → 127 ms、开发集 500 句查询平均 133 → 95 ms，CPU 时间降到约四分之一，成绩不变（2026-10-28）。
+知意的 ONNX Runtime 本来就是 2 线程（占整机 8%）；关掉它的空转（`intra_op.allow_spinning`）只省 0.1 个核、查询却慢 5 ms，没关。
 
 feature `zhiyi` 是知意的选词模型（`zhiyi::ChoiceScorer`，实现 Core 的 `ChoiceModel`）：分词、对齐、序列拼法共用，前向两个实现——
 safetensors 版由 candle 跑（mac），feature `zhiyi-onnx` 加上 int8 ONNX 版由 ONNX Runtime 跑（Windows，CPU 两线程）。`ort` 用 `load-dynamic`，编译时不链接，

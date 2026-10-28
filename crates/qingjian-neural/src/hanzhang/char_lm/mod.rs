@@ -3,6 +3,7 @@
 mod prefix_cache;
 mod projection;
 mod q8_matrix;
+mod threads;
 
 pub use prefix_cache::PrefixCache;
 
@@ -203,13 +204,15 @@ impl CharLm {
 
     /// 前向：`idx` 形状 `[b, t]`（u32），返回 logits `[b, t, vocab]`。
     pub fn forward(&self, idx: &Tensor) -> Result<Tensor> {
-        Ok(self.run(idx, None, false)?.0)
+        threads::install(|| Ok(self.run(idx, None, false)?.0))
     }
 
     /// 每个位置对下一个 token 的 log-softmax，`[b, t, vocab]`，f32。
     pub fn log_probs(&self, idx: &Tensor) -> Result<Tensor> {
-        let logits = self.forward(idx)?.to_dtype(DType::F32)?;
-        ops::log_softmax(&logits, D::Minus1)
+        threads::install(|| {
+            let logits = self.run(idx, None, false)?.0.to_dtype(DType::F32)?;
+            ops::log_softmax(&logits, D::Minus1)
+        })
     }
 
     /// 算一段前文的 K / V 缓存；空前文给空缓存。
@@ -222,29 +225,33 @@ impl CharLm {
             });
         }
         let idx = Tensor::from_vec(ids.to_vec(), (1, ids.len()), &self.device)?;
-        let (_, cache) = self.run(&idx, None, true)?;
+        let (_, cache) = threads::install(|| self.run(&idx, None, true))?;
         Ok(cache.expect("record was requested"))
     }
 
     /// 接着缓存推进一段（`idx` 形状 `[b, t]`），返回最后一位对下一个 token 的 log-softmax（`[b, vocab]`，f32）
     /// 与长出这一段之后的新缓存。逐字生成用。
     pub fn step(&self, cache: &PrefixCache, idx: &Tensor) -> Result<(Tensor, PrefixCache)> {
-        let (logits, next) = self.run(idx, Some(cache), true)?;
-        let t = logits.dim(1)?;
-        let last = logits
-            .narrow(1, t - 1, 1)?
-            .squeeze(1)?
-            .to_dtype(DType::F32)?;
-        Ok((
-            ops::log_softmax(&last, D::Minus1)?,
-            next.expect("record was requested"),
-        ))
+        threads::install(|| {
+            let (logits, next) = self.run(idx, Some(cache), true)?;
+            let t = logits.dim(1)?;
+            let last = logits
+                .narrow(1, t - 1, 1)?
+                .squeeze(1)?
+                .to_dtype(DType::F32)?;
+            Ok((
+                ops::log_softmax(&last, D::Minus1)?,
+                next.expect("record was requested"),
+            ))
+        })
     }
 
     /// 接在前文缓存后面的一段（`[b, t]`）每个位置对下一个 token 的 log-softmax，`[b, t, vocab]`，f32。
     /// 前文长度加 `t` 不能超过模型上下文。
     pub fn log_probs_after(&self, cache: &PrefixCache, idx: &Tensor) -> Result<Tensor> {
-        let (logits, _) = self.run(idx, Some(cache), false)?;
-        ops::log_softmax(&logits.to_dtype(DType::F32)?, D::Minus1)
+        threads::install(|| {
+            let (logits, _) = self.run(idx, Some(cache), false)?;
+            ops::log_softmax(&logits.to_dtype(DType::F32)?, D::Minus1)
+        })
     }
 }
