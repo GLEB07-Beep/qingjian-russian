@@ -199,7 +199,18 @@ impl Engine {
             .first()
             .and_then(|s| s.syllables.first())
             .map_or(0, |s| s.text.len());
-        ranking::arrange(&mut scored, whole, first, clean, |item| choice(item) > 0);
+        // 末尾只敲了个没打完的音节（`woganj` 的 j）时，盖住前面完整音节的词（我敢）也算整词；
+        // 有一种全是完整音节的切法时（`mingtia` 读得成 ming ti a）末尾不算没打完
+        let complete = segmentations.first().filter(|_| !clean).map_or(whole, |s| {
+            if s.last_is_partial() {
+                s.letters() - s.syllables.last().map_or(0, |last| last.text.len())
+            } else {
+                s.letters()
+            }
+        });
+        ranking::arrange(&mut scored, whole, complete, first, clean, |item| {
+            choice(item) > 0
+        });
         // 辅码态：词库候选按码段**反向**过滤（逐个问「有没有以码段开头的码」），无码词直接隐藏；
         // 命中的按「完全匹配码 > 码长降序 > 原词频序」重排（stable sort 保住 rank 排好的原序）。
         // 码段为空（刚敲下触发键）时不过滤，候选与纯拼音态一模一样。

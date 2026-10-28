@@ -158,15 +158,26 @@ fn single_chars_come_before_guessed_words_and_split_readings() {
 }
 
 #[test]
-fn long_input_without_a_word_still_offers_the_first_syllables_chars_early() {
-    // #769：整段没有词时，盖住开头几个音节的词排前面，但首音节最好的两个单字跟在头两个之后，不用翻几页
+fn long_input_without_a_word_offers_the_first_syllables_chars_after_a_few_words() {
+    // #769：整段没有词时，盖住开头几个音节的词至多几个，接着就是首音节的单字，不穿插也不用翻几页
     let dictionary = concat!(
         "实验室\tshi yan shi\t9000\n十堰市\tshi yan shi\t8000\n试验室\tshi yan shi\t7000\n",
         "实验\tshi yan\t9000\n试验\tshi yan\t8000\n是\tshi\t9000\n时\tshi\t8000\n十\tshi\t7000\n",
     );
     let all = texts_in(dictionary, "shiyanshiqing");
-    assert_eq!(&all[..4], ["实验室", "十堰市", "是", "时"]);
-    assert!(position(&all, "十") > position(&all, "实验"), "{all:?}");
+    assert_eq!(
+        &all[..8],
+        [
+            "实验室",
+            "十堰市",
+            "试验室",
+            "实验",
+            "试验",
+            "是",
+            "时",
+            "十"
+        ]
+    );
 }
 
 #[test]
@@ -618,14 +629,14 @@ fn split_readings_keep_their_place_when_no_word_reads_as_typed() {
 
 #[test]
 fn many_whole_words_still_leave_room_for_single_chars() {
-    // `zhiyi` 读得出五十多个整词：前 12 个之后先给首音节的单字，再接其余整词
+    // `zhiyi` 读得出五十多个整词：前 6 个之后先给首音节的单字，再接其余整词
     let mut dictionary = String::from("知\tzhi\t100\n");
     for (i, c) in "一二三四五六七八九十百千万亿".chars().enumerate() {
         dictionary.push_str(&format!("之{c}\tzhi yi\t{}\n", 9000 - i));
     }
     let all = texts_in(&dictionary, "zhiyi");
     let first_char = position(&all, "知");
-    assert_eq!(first_char, 12, "{all:?}");
+    assert_eq!(first_char, 6, "{all:?}");
     assert!(
         all[first_char + 1..].iter().any(|t| t.starts_with('之')),
         "{all:?}"
