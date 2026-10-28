@@ -193,7 +193,7 @@ impl Query {
     /// [`crate::Engine::toned_syllables`]）时，敲的那段换成候选的带调读音，候选没覆盖到的音节照切分接在后面
     /// （`nihao` 高亮 你好 是 `nǐ'hǎo`、高亮 你 是 `nǐ'hao`，简拼 `nh` 高亮 你好 也是 `nǐ'hǎo`）；纠错生效时不换。
     /// 应用输入框里的 marked text 不受影响，仍是 [`Self::marked_text`]。
-    /// 双拼「候选窗显示按键」开着时不换读音，直接是敲的键（[`Self::raw_segments`]）。
+    /// 双拼「候选窗显示按键」开着时不换读音，直接是敲的键（`raw_segments`）。
     pub fn window_segments(&self, toned: Option<&[String]>) -> (Vec<MarkedSegment>, usize) {
         if self.shuangpin_raw_window {
             return self.raw_segments();
