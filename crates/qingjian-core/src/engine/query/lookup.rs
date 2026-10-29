@@ -1,6 +1,11 @@
 //! 词级查找：每个位置展开成多种写法，再按这些写法查主词库与用户词。
 
-use super::*;
+use qingjian_dictionary::Match;
+
+use crate::correction::typo;
+use crate::engine::Learner;
+use crate::fuzzy::Expanded;
+use crate::{Engine, Segmentation, correction, sentence};
 
 impl Engine {
     /// 每个位置的写法：敲的原样、模糊音，再加音节级敲错变体（`correction::typo`）当带代价的边，
@@ -12,7 +17,7 @@ impl Engine {
         typos: bool,
     ) -> Expanded {
         let mut expanded = self.fuzzy.expand(patterns);
-        if !typos {
+        if !typos || !self.spelling_correction {
             return expanded;
         }
         let letters: usize = patterns.iter().map(|p| p.text.len()).sum();
@@ -44,6 +49,17 @@ impl Engine {
             .filter(|conversion| !conversion.has_placeholder())
             .map(|conversion| conversion.text)
             .unwrap_or_default()
+    }
+
+    /// 词级排序里一个候选的上下文得分：语言模型（不认识就按词频兜底）与个人 n-gram 插值，再乘读音占比。
+    pub(in crate::engine) fn word_log_prob(&self, hit: &Match<'_>, log_total: f64) -> f64 {
+        sentence::transition_log_prob(
+            &*self.language_model,
+            self.personal(),
+            self.chain.context(),
+            hit.text,
+            sentence::fallback_log_prob(hit.frequency, hit.secondary, log_total),
+        ) - sentence::reading_cost(hit)
     }
 
     /// 主词库与用户词一起查（每个位置多种写法）。用户词是用户自己选过的（云联想接受的词等），排序上靠 weight 自然靠前。

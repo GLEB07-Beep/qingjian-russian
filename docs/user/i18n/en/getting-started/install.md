@@ -5,7 +5,9 @@ description: "Installing on macOS and Windows: system requirements, installers, 
 ---
 
 The macOS and Windows versions are in beta. Get the installer from the [download page](https://qingjian.app/en/download).
-The Linux version is installed from a terminal, see [Linux](../platforms/linux.md); the Android version has no installer yet, see [Android](../platforms/android.md).
+The Linux version is installed from a terminal, see [Linux](../platforms/linux.md); the Android version is installed from an APK, see [Android](../platforms/android.md).
+
+The only official release channels for now are the website's download page, [GitHub Releases](https://github.com/qingjian-team/qingjian/releases), and the Quark Drive link given in each version's changelog; a "Qingjian" from anywhere else isn't an official release. Qingjian isn't published in any package manager yet.
 
 ## macOS
 
@@ -21,6 +23,16 @@ After installing:
 
 - A 中 / 英 (Chinese / English) item appears at the top right of the menu bar; click it to open the input method menu and settings.
 - Before you start, choose a learning language under 设置 → 候选 → 译文 (Settings → Candidates → Gloss). The gloss beside each candidate will be in that language; see [Glosses beside candidates](../learning/translation.md).
+
+### If it misbehaves after replacing the app directly: add it again
+
+If you replace Qingjian's app directly instead of using the installer, the system may keep using the old registration: Qingjian can still be selected, but it doesn't behave like the new version. In that case:
+
+1. Remove 青简 under System Settings → Keyboard → Input Sources → Edit;
+2. Log out and back in;
+3. Add 青简 again.
+
+The installer doesn't need this: every installation registers it again.
 
 ## Windows
 

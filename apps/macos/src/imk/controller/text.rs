@@ -7,7 +7,7 @@ impl QingjianInputController {
         tracing::debug!(%text, "inputText");
         self.note_application(&client);
         let mut composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
-        let english = modifiers::caps_lock_on();
+        let english = host::with(|h| h.english_mode()).unwrap_or(false);
         // 不在白名单（`[apps] english_candidates_on`）里的应用，英文模式是纯直通
         let english_candidates = english
             && host::with(|h| h.english_candidates_in(client.bundle_identifier().as_deref()))
@@ -32,7 +32,7 @@ impl QingjianInputController {
             return false;
         };
         let c = char::from(*byte);
-        host::with(|h| h.indicator.update());
+        host::with(|h| h.indicator.update(english));
         // 缓冲区为空时敲 ? 先进问字模式（配置 `[shortcut] question_mark`，缺省关），中英文模式都行：
         // 后面跟字母就是在问字，跟别的键就还原成问号
         if !composing
@@ -61,8 +61,9 @@ impl QingjianInputController {
         let page_step = Self::page_step(c);
         // Caps Lock 亮着 = 英文模式：不组句、不转标点，字母默认小写、按住 Shift 才大写
         if english && !question {
-            // Caps Lock 亮着时 macOS 不管按没按 Shift 送来的都是大写，只能读 Shift 状态：按着才大写
-            let letter = if modifiers::shift_down() {
+            // Caps Lock 亮着时 macOS 送来的都是大写，大小写只能自己定：Shift = 大写，
+            // 勾了「单击 Shift」时 Caps Lock 退化成只管大小写，也跟着参与（见 Host::english_letter_uppercase）
+            let letter = if host::with(|h| h.english_letter_uppercase()).unwrap_or(false) {
                 c.to_ascii_uppercase()
             } else {
                 c.to_ascii_lowercase()
@@ -155,7 +156,7 @@ impl QingjianInputController {
         let semicolon =
             composing && c == ';' && host::with(|h| h.engine.takes_semicolon()).unwrap_or(false);
         // 组句中敲不会转全角的符号（`/` `@`，`-` 由上面的 hyphen 接）：进缓冲区，整段成为英文直输段（`a@b`），
-        // 中文模式下也能打带符号的英文；翻页键除外；⇧+数字（! @ # …）在前面已被删候选 / 译词键截走。
+        // 中文模式下也能打带符号的英文；翻页键除外。
         // 会转全角的标点（`,` `.` `?` `!` 引号、括号这些）不进缓冲区：落到下方先把高亮候选上屏再补全角标点
         //（`nihao,` 一气打完「你好，」），与 Windows / Linux 壳一致；这条上屏行为由 `[general] punct_commits`
         // 控制（缺省开），关掉恢复老行为：标点也进缓冲区（英文直输段）。
@@ -176,7 +177,7 @@ impl QingjianInputController {
         if c.is_ascii_lowercase()
             || (composing && c == '\'')
             || semicolon
-            || (expression && qingjian_core::shortcut::is_expression_char(c))
+            || (expression && host::with(|h| h.engine.expression_input(c)).unwrap_or(false))
             || (raw && c.is_ascii_graphic())
             || (unicode && (c.is_ascii_digit() || c == '+'))
             || hyphen
@@ -190,9 +191,16 @@ impl QingjianInputController {
             self.refresh(client);
             return true;
         }
-        // 直输段里的空格：整段原样上屏，空格本身也交给应用（`hello, world` 里的空格要在）
+        // 直输段里的空格：整段原样上屏，空格本身也交给应用（`hello, world` 里的空格要在）；
+        // 高亮挪到邮箱地址上时只上屏地址
         if raw && c == ' ' {
+            let address = host::with(|h| h.session.candidate(h.session.highlighted))
+                .flatten()
+                .is_some_and(|candidate| candidate.kind == qingjian_core::CandidateKind::Shortcut);
             self.commit_highlighted(client);
+            if address {
+                return true;
+            }
             host::with(|h| h.engine.note_passthrough(c));
             return false;
         }

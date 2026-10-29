@@ -78,6 +78,8 @@ impl StripPainter {
             }),
             highlighted: None,
             footer: None,
+            previous_page: false,
+            next_page: false,
             sentence: None,
             status: (!frame.notice.is_empty()).then(|| frame.notice.clone()),
             mode: Mode::default(),
@@ -108,7 +110,7 @@ impl StripPainter {
             hits: rendered
                 .hits
                 .iter()
-                .map(|region| StripHit::new(region, offset))
+                .filter_map(|region| StripHit::new(region, offset))
                 .collect(),
             emoji: self.emoji.clone(),
         };

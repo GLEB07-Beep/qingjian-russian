@@ -83,7 +83,7 @@
 - [ ] 通变按当前词库重标拼音重训：训练用的旧词库没有 嗯 / 诶 / 囧，字表里也就没有，带这几个字的路径现在整批不重排（`enen` 靠静态模型出 嗯嗯）
 - [x] 个人英文词表没有衰减（2026-09-24 发现）：用户词频 / 个人英文词 / 敲错表三张表已加牛顿冷却时间衰减
   （半衰期 90 天，`--tune decay-days=` 可调，0 为不衰减），冷却只压排序权重，记录保留、冷满一年才在落盘时清出，
-  30 天不用的英文词失去「当第一」的资格；自愈出口仍是删候选快捷键（缺省 `Shift` + 数字）走 `forget_english`。
+  30 天不用的英文词失去「当第一」的资格；自愈出口仍是删候选（0.3 起在候选右键菜单里）走 `forget_english`。
   「位置只有两档」另见 #606。
 - [ ] 日语 emoji 要等有日语输入模式
 - [ ] 人名输入（2026-10-20 用户群反馈，对照微软拼音）：一串拼音像人名时，第一个音节先按姓氏匹配、不当词语查；
@@ -118,7 +118,7 @@
     状态条自己一个窗口类 + 窗口过程（`ui/status/`）：`WM_NCHITTEST`→`HTCAPTION` 整块可拖、`WM_MOUSEACTIVATE`→`MA_NOACTIVATE` 不抢焦点、
     `WM_EXITSIZEMOVE` 把位置写回 `[status_bar] x/y`（`GWLP_USERDATA` 存自身指针）。新增协议 `ClientMessage::ModeChanged{english}`（fire-and-forget），
     DLL 在 `update_mode_indicator` 推模式；Server 据此刷、会话关就收起；双拼方案 Server 从 `[general] shuangpin` 知道。配置加 `[status_bar]` 分节（`enabled`/`x`/`y`），
-    设置「候选窗口」页加开关。参考水杉 FTB 形态（它用 D2D 且不记位置），我们沿用 GDI 分层窗保持视觉一致并加了记位置。
+    设置「候选窗口」页加开关。沿用 GDI 分层窗保持视觉一致，并记住位置。
     mac 全绿（+3 状态条分派测试）+ windows-gnu 交叉编译 / clippy 过；拖动 / 记位置 / DPI / 深色 / 盖高 z-band 待真机验。
   - [~] **④ 删候选屏幕提示**（★☆☆ / 低 / 0.5 天）：**代码完成，待真机测**（2026-09-11）。
     `Frame` 加 `notice: Option<String>`（不参与 `is_empty`），`dispatch/shortcut.rs::forget_on_page` 填、`handle_key` 开头清（只活到下一次按键）；
@@ -136,6 +136,15 @@
     data Release 传 `model.qjm`，bundle.sh / qingjian.iss 只带一个文件），待 mac 与 box 真机各装一次验加载与重排；
     密码框已按 TSF 规范做（2026-09-12）：`KEYBOARD_DISABLED` compartment 整键放行不组句，`IS_PRIVATE` / 密码 / PIN 输入范围为私密（组句但不学不记不发云端，`ClientMessage::Privacy` → `Engine::set_private`），box 真机验过：Edge 密码框整键放行；InPrivate 网页文本框报 `IS_SEARCH` 不报 `IS_PRIVATE`，私密路径只靠单测覆盖；CI 两个 job 都从 `data` Release 取 `model.qjm`（已做）。
 - [ ] Linux Fcitx5 后续（默认面板与手动安装已实现）：native Wayland 验证、Server 自绘 / GNOME 位图、神经重排、自动启动与打包；配置同步、跨平台词库
+- [~] Linux 双框架（装的时候认 fcitx5 还是 IBus，两个都支持）：IBus 前端 `apps/linux/ibus` 已能用——
+  socket 客户端、按键翻译、D-Bus 层（按键 / 焦点 / 重置 / 面板三样）都通了，对着真 ibus-daemon 验过。还差：
+  - 密码框与私密输入：`SetContentType` 的映射写了但**没验过**（测试里 IBus 一次都没调它），要找个真密码框试；验法见 [notes/linux-dual-frontend.md](../notes/linux-dual-frontend.md)
+  - 按应用设置：IBus 这条路上还没拿到应用标识，`OpenSession` 的 `app` 报 `None`，`[apps]` 分节对它不生效
+  - ~~`focus_out` 的 `client_preedit`~~：2026-10-15 改报 `true`，preedit 用 COMMIT 模式由框架留在原来的框里（X11）；
+    GNOME Wayland 上改在快捷键交给应用前先原样上屏，鼠标换框仍会丢，见 [notes/linux-bringup.md](../notes/linux-bringup.md)
+  - ~~安装脚本按已装框架分支安装、Server 的启动策略~~：`install.sh --frontend auto` 已做，systemd 用户单元 `qingjian-server.service` 随装（`--enable-service` 顺手 enable），两个前端共用一个 Server
+  - `[general] preedit` 三档在 IBus 面板下逐个真机验（它的面板能力比 fcitx5 弱），坑见 [notes/linux-bringup.md](../notes/linux-bringup.md)
+- [ ] 安卓设置里加「拼写纠错」开关（`[general] spelling_correction`，2026-10-26 桌面三平台已接；安卓引擎缺省开着，Kotlin 设置页与 `InputOptions` 还没传这一项）
 - [ ] 设置项的平台缺口（设置程序 `apps/settings/src/support/` 表里标「待实现」的项，输入法接上之前设置里不显示；测试逐条对照这里）：
   - [ ] 辅码：Linux
   - [ ] 形码与自定义方案：Linux
@@ -146,11 +155,12 @@
   - [ ] 额外翻页键：Linux
   - [ ] 高亮移动键：Linux
   - [ ] Ctrl + . 切换全半角标点：Linux
-  - [ ] 云服务用量统计：Linux
-  - [ ] 按需云联想与请求节奏：Linux
-  - [ ] 生词本整句翻译：Linux
+  - [ ] Ctrl + Shift + F 切换简繁输出：macOS、Linux
   - [ ] 双拼键位提示：Linux
   - [ ] 拼音行显示声调：Linux
+  - [ ] 实验功能（知意、含章·通变）：Linux
+  - [ ] 小键盘数字：macOS、Linux
+  - [ ] 双拼候选窗显示按键：Linux
 
 ## 四、其他输入方案
 

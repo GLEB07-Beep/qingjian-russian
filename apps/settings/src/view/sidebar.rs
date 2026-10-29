@@ -79,7 +79,7 @@ fn navigation(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderEr
     let theme = &page.theme;
     ui.scope("nav", |ui| -> Result<Vec<NodeId>, RenderError> {
         let mut items = Vec::new();
-        for id in PageId::ALL {
+        for id in PageId::ALL.into_iter().filter(|id| id.shown()) {
             let selected = id == page.settings.page;
             let mut item = NavItem::new(id.label())
                 .icon(Arc::new(id.glyph()))
@@ -160,7 +160,7 @@ fn brand(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(bamboo_slip::taffy::AlignItems::CENTER),
+            align_items: bamboo_slip::taffy::AlignItems::CENTER,
             gap: page.gap(8.0),
             padding: Rect {
                 left: LengthPercentage::length(page.px(6.0)),
@@ -213,7 +213,7 @@ fn joint(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
         Style {
             position: Position::Absolute,
             flex_direction: FlexDirection::Column,
-            justify_content: Some(JustifyContent::CENTER),
+            justify_content: JustifyContent::CENTER,
             inset: Rect {
                 left: LengthPercentageAuto::length(-page.px(9.0)),
                 top: LengthPercentageAuto::length(0.0),

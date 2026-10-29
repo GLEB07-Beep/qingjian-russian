@@ -4,7 +4,7 @@ order: 1
 description: "Which Qingjian features are available on macOS, Windows, Linux and Android: current status, key conventions and what isn't supported yet."
 ---
 
-The macOS and Windows versions are in beta with nearly the same features; keys follow each system's conventions. The Linux version uses Fcitx's candidate panel and is started by hand. The Android version is in development and has to be built from source.
+The macOS and Windows versions are in beta with nearly the same features; keys follow each system's conventions. The Linux version uses Fcitx's candidate panel and is started by hand. The Android version is a preview with fewer features, installed from an APK.
 
 "✓" means supported; "—" means not supported yet, or not applicable.
 
@@ -20,7 +20,7 @@ The macOS and Windows versions are in beta with nearly the same features; keys f
 | Custom double pinyin / shape-based schemes | ✓ | ✓ | — | — |
 | Auxiliary code | ✓ | ✓ | — | — |
 | Key hints and radical chart | ✓ | ✓ | — | — |
-| Local sentence model | ✓ | ✓ | ✓ | ✓ |
+| Local sentence model | ✓ | ✓ | ✓ | — |
 | English mode and English completion | ✓ | ✓ | ✓ | ✓ (English keyboard) |
 | Choice of Chinese/English switch key | — (`Caps Lock`) | ✓ | ✓ | — |
 | Start in English mode | — | ✓ | ✓ | — |
@@ -66,13 +66,13 @@ The macOS and Windows versions are in beta with nearly the same features; keys f
 | Feature | macOS | Windows | Linux | Android |
 |---|---|---|---|---|
 | Cloud suggestions and sentence completion | ✓ | ✓ | ✓ | ✓ |
-| On-demand suggestions, request timing | ✓ | ✓ | — | — |
+| On-demand suggestions, request timing | ✓ | ✓ | ✓ | — |
 | Asking about a character | ✓ | ✓ | ✓ | — |
 | Translating selected text | ✓ | ✓ | ✓ | ✓ |
 | Quick translation bar | — | — | — | ✓ |
-| Filling in glosses automatically | ✓ | ✓ | — | ✓ (gloss fallback) |
-| Sentence translation for the vocabulary book | ✓ | ✓ | — | — |
+| Filling in glosses automatically | ✓ | ✓ | ✓ | ✓ |
+| Sentence translation for the vocabulary book | ✓ | ✓ | ✓ | — |
 | Translating sentence candidates | — | ✓ | — | — |
-| AI usage statistics | ✓ | ✓ | — | — |
+| AI usage statistics | ✓ | ✓ | ✓ | — |
 
 Installation and platform-specific features: [Installation](../getting-started/install.md) (macOS, Windows), [Linux](linux.md), [Android](android.md).

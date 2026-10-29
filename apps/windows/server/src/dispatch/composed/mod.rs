@@ -3,6 +3,7 @@
 mod sentence_translation;
 mod state;
 
+use qingjian_core::candidate::arrows::{Focus, Matrix};
 use qingjian_core::{
     Candidate, CandidateKind, CandidateLayout, CandidateList, Cell, CloudWord, Engine, GRID_ROWS,
     Grid, Language, Query, Sense, SurroundingText, Translation,
@@ -29,6 +30,7 @@ impl Router {
         self.grid = None;
         self.sentence = None;
         if self.engine.composition().is_empty() {
+            self.focus = Focus::default();
             // 清空时也要撤掉 worker 中的待发请求，避免无用请求占掉最短间隔。
             self.engine.cancel_prediction();
             self.composed = None;
@@ -104,6 +106,23 @@ impl Router {
         let Some(prediction) = self.engine.poll_prediction() else {
             return;
         };
+        if self
+            .candidate_translation
+            .as_ref()
+            .is_some_and(|(sequence, _)| *sequence == prediction.sequence)
+        {
+            let (_, candidate) = self.candidate_translation.take().expect("刚检查过候选译文");
+            let updated = prediction
+                .sentence
+                .is_some_and(|text| self.engine.set_candidate_translation(&candidate, &text));
+            self.notice = Some(if updated {
+                self.refresh_candidate_translation(&candidate.text);
+                format!("已更新「{}」的译文", candidate.text)
+            } else {
+                "模型没有生成可用译文".to_owned()
+            });
+            return;
+        }
         if self.translation.is_some() {
             match prediction.sentence {
                 Some(text) => {
@@ -320,6 +339,17 @@ impl Router {
         self.grid = Some(Grid::at(layout, 0));
         self.navigated = true;
         true
+    }
+
+    /// 给 `arrows::route` 的矩阵状态：没开「横排时展开成多行」、单行、展开后高亮在不在第一行。
+    pub(super) fn matrix(&self) -> Matrix {
+        match self.grid {
+            Some(_) => Matrix::Open {
+                first_row: self.highlight < self.config.page_size,
+            },
+            None if self.config.grid_keys() => Matrix::Closed,
+            None => Matrix::Off,
+        }
     }
 
     /// 矩阵里按阅读顺序移一格（越过行尾到下一行开头），跳过空位；没展开时不动。返回是否动了。
@@ -547,7 +577,12 @@ impl Router {
                     cursor,
                     window_preedit,
                     candidates,
-                    highlight: highlight - first,
+                    // 方向键在拼音行里时候选不画高亮，空格照样上屏原来高亮的那个
+                    highlight: if self.config.two_area_arrows() && self.focus == Focus::Pinyin {
+                        usize::MAX
+                    } else {
+                        highlight - first
+                    },
                     page,
                     page_count: layout.pages().max(1),
                     layout: self.config.layout,
@@ -581,15 +616,20 @@ fn empty_cell() -> Candidate {
     }
 }
 
-/// 候选窗口顶部的拼音行：带调拼音开着、高亮候选读得出声调时换成它的读音，与行内拼音相同时不另给。
+/// 候选窗口顶部的拼音行：双拼「候选窗显示按键」开着时是敲的键；带调拼音开着、高亮候选读得出声调时换成它的读音；
+/// 与行内拼音相同时不另给。
 fn window_parts(
     engine: &Engine,
     query: &Query,
     candidate: Option<&Candidate>,
     preedit: &[PreeditSegment],
 ) -> Option<Box<(Vec<PreeditSegment>, usize)>> {
-    let toned = engine.toned_syllables(candidate?)?;
-    let (segments, cursor) = query.window_segments(Some(&toned));
+    let (segments, cursor) = if query.shuangpin_raw_window {
+        query.window_segments(None)
+    } else {
+        let toned = engine.toned_syllables(candidate?)?;
+        query.window_segments(Some(&toned))
+    };
     let segments: Vec<PreeditSegment> = segments.iter().map(Into::into).collect();
     (segments != preedit).then(|| Box::new((segments, cursor)))
 }

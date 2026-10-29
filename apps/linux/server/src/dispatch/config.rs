@@ -16,6 +16,12 @@ pub struct RouterConfig {
     /// 云端候选在第一页预留的格数（`[predict] slots`）。
     pub cloud_slots: usize,
 
+    /// 是否请求云端候选词和整句补全（`[predict] enabled`）。
+    pub cloud_enabled: bool,
+
+    /// 组句中按需调用 AI 的组合键（`[shortcut] predict`）。
+    pub predict: KeyCombo,
+
     /// 候选排布（`[general] layout`）。
     pub layout: LayoutMode,
 
@@ -56,9 +62,6 @@ pub struct RouterConfig {
     /// 上屏第一 / 第二个译词的修饰键（`[shortcut] translation` / `translation_second`）。
     pub translation_keys: (KeyModifiers, KeyModifiers),
 
-    /// 删候选的修饰键（`[shortcut] delete_candidate`）。
-    pub delete_keys: KeyModifiers,
-
     /// 翻译应用选区的修饰键与字母（`[shortcut] translate_selection`）。
     pub translate_selection: KeyCombo,
 
@@ -97,6 +100,8 @@ impl From<&Config> for RouterConfig {
             } else {
                 0
             },
+            cloud_enabled: config.predict.enabled,
+            predict: config.shortcut.predict,
             layout: config.general.layout,
             appearance: config.general.appearance(),
             page_keys: config.general.page_keys(),
@@ -113,7 +118,6 @@ impl From<&Config> for RouterConfig {
                 let (first, second) = config.shortcut.translation_keys();
                 (first.into(), second.into())
             },
-            delete_keys: config.shortcut.delete_keys().into(),
             translate_selection: config.shortcut.translate_selection,
             translation_pos: config.general.translation_pos,
         }

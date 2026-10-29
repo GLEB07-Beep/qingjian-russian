@@ -19,6 +19,12 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "input/fuzzy-and-shuangpin",
         "双拼",
     ),
+    (
+        PageId::Input,
+        "候选窗显示按键",
+        "input/fuzzy-and-shuangpin",
+        "双拼",
+    ),
     (PageId::Input, "形码", "input/wubi", "开启"),
     (
         PageId::Input,
@@ -28,8 +34,15 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (PageId::Input, "启用", "input/aux-code", "开启"),
     (PageId::Input, "触发键", "input/aux-code", "触发键"),
+    (PageId::Input, "笔画", "input/aux-code", "码表"),
     (PageId::Input, "导入码表", "input/aux-code", "码表"),
     (PageId::Candidates, "译文", "learning/translation", "译词"),
+    (
+        PageId::Candidates,
+        "小键盘数字",
+        "getting-started/keys",
+        "打拼音时",
+    ),
     (PageId::Candidates, "输出字形", "input/traditional", "开启"),
     (
         PageId::Candidates,
@@ -163,6 +176,12 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "personalize/keys-settings",
         "全半角标点快捷键（macOS、Windows）",
     ),
+    (
+        PageId::Shortcuts,
+        "Ctrl + Shift + F 切换简繁输出",
+        "personalize/keys-settings",
+        "简繁切换快捷键（Windows）",
+    ),
     (PageId::Shortcuts, "表达式", "input/shortcuts", "换前缀字母"),
     (
         PageId::Shortcuts,
@@ -190,12 +209,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (
         PageId::Shortcuts,
-        "删除候选",
-        "personalize/habits",
-        "删除不需要的候选",
-    ),
-    (
-        PageId::Shortcuts,
         "翻译选中文字",
         "cloud/question-and-translate",
         "翻译选中的文字",
@@ -206,7 +219,7 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "personalize/phrases",
         "新增与编辑",
     ),
-    (PageId::Phrases, "位置", "personalize/phrases", "位置规则"),
+    (PageId::Phrases, "权重", "personalize/phrases", "排列规则"),
     (
         PageId::Phrases,
         "也用系统的文本替换",
@@ -325,15 +338,23 @@ mod tests {
             std::env::temp_dir().join(format!("qingjian-settings-docs-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("config.toml");
-        // 选一种双拼：「输入框显示按键」只在双拼时建出来
+        // 选一种双拼：「输入框显示按键」「候选窗显示按键」只在双拼时建出来
         let shuangpin = qingjian_platform::Scheme::ALL[1];
         qingjian_platform::Config::set_value(&path, "general", "scheme", shuangpin.key()).unwrap();
-        let settings = crate::settings::Settings::load(path).unwrap();
+        let settings = crate::settings::Settings::load(path);
         let index = crate::view::index(&settings);
         let _ = std::fs::remove_dir_all(&dir);
-        // 只在别的平台显示的行这个平台上建不出来；短语卡片里的行只在卡片打开时建
+        // 只在别的平台显示的行这个平台上建不出来；短语卡片里的行只在卡片打开时建；
+        // 「笔画」是随包码表的行，CI 只有样例数据、没有这张表
+        let stroke = settings
+            .library
+            .bundled_codes
+            .iter()
+            .any(|entry| entry.stem == qingjian_platform::code_tables::STROKE);
         for (page, row, ..) in LINKS {
-            if crate::support::elsewhere(*page, row) || (*page == PageId::Phrases && *row == "位置")
+            if crate::support::elsewhere(*page, row)
+                || (*page == PageId::Phrases && *row == "权重")
+                || (*row == "笔画" && !stroke)
             {
                 continue;
             }

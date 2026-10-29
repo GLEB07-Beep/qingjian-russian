@@ -19,30 +19,37 @@ impl Engine {
                 .any(|p| p.enabled && p.code == self.composition.scope())
     }
 
-    /// 所有普通候选完成排序后按输入码固定位置。
+    /// 所有普通候选完成排序后，这个输入码的短语按权重从高到低占最前面几位（权重相同的按列表顺序），
+    /// 后面跟短语同字的候选去掉，免得同一个词出两遍。
+    ///
+    /// 英文模式下只出内容不含汉字的短语：`dont` → `don't` 该生效，但中文短语（含在中文模式里右键
+    /// 「置顶」按拼音加的那条，如 `he` → 和）在英文模式按空格上屏就是中文，与英文候选的语义冲突（#763）。
     pub(super) fn insert_custom_phrases(&self, items: &mut Vec<Candidate>) {
-        if self.english_mode {
-            return;
-        }
         let mut phrases: Vec<_> = self
             .custom_phrases
             .iter()
-            .filter(|p| p.enabled && p.code == self.composition.scope())
+            .filter(|p| {
+                p.enabled
+                    && p.code == self.composition.scope()
+                    && (!self.english_mode || !p.text.chars().any(crate::sentence::is_han))
+            })
             .collect();
-        phrases.sort_by_key(|p| p.position);
-        for phrase in phrases {
-            items.insert(
-                (phrase.position - 1).min(items.len()),
-                Candidate {
+        phrases.sort_by_key(|p| std::cmp::Reverse(p.weight));
+        items.retain(|c| !phrases.iter().any(|p| p.text == c.text));
+        items.splice(
+            0..0,
+            phrases
+                .into_iter()
+                .enumerate()
+                .map(|(i, phrase)| Candidate {
                     text: phrase.text.clone(),
-                    kind: CandidateKind::Custom(phrase.position),
+                    kind: CandidateKind::Custom(i + 1),
                     syllables: Vec::new(),
                     reading: None,
                     translation: None,
                     aux_code: None,
-                },
-            );
-        }
+                }),
+        );
     }
 
     /// 日期 / 时间 / 星期这类快捷候选插在本地首选之后：`rq` 首选仍是词库里的词，快捷写法紧随其后。
@@ -154,14 +161,16 @@ impl Engine {
         } else {
             1
         };
+        let mut budget = self.english_max_in_chinese;
         if let Some(word) = word {
             items.insert(position, english_candidate(word));
             position += 1;
+            budget -= 1;
         }
         // 英文补全：拼音不像话时（`compa` 切成 co'm'pa），整段多半是在打英文词的前面几个字母，补全紧跟在精确词之后；
         // 个人词表在前，两张表里都有的只出一次。
-        if unlikely_pinyin && text.len() >= MIN_COMPLETION_LETTERS {
-            let mut budget = ENGLISH_COMPLETIONS;
+        if unlikely_pinyin && budget > 0 && text.len() >= MIN_COMPLETION_LETTERS {
+            let mut budget = budget.min(ENGLISH_COMPLETIONS);
             for words in &lists {
                 for word in words.complete(text, budget) {
                     if items
@@ -179,6 +188,29 @@ impl Engine {
                 }
             }
         }
+    }
+
+    /// 有中文候选时把英文块挪到第 `english_min_position` 位（配置 `[general] english_min_position`，
+    /// 缺省 1 即不限制）。等整句也插进来之后再调：整句本身是中文，`cargo` 这类只有整句能读通时也得让位。
+    /// 没有中文候选（`github`）时英文照旧在最前。
+    pub(super) fn place_english(&self, items: &mut Vec<Candidate>) {
+        if self.english_min_position <= 1 || !items.iter().any(|c| c.kind == CandidateKind::Chinese)
+        {
+            return;
+        }
+        let mut english = Vec::new();
+        items.retain(|c| {
+            if c.kind != CandidateKind::English {
+                return true;
+            }
+            english.push(c.clone());
+            false
+        });
+        if english.is_empty() {
+            return;
+        }
+        let position = (self.english_min_position - 1).min(items.len());
+        items.splice(position..position, english);
     }
 
     /// 给英文候选用的词表，个人的在前、随包的在后；一张都没有就是空。
@@ -264,10 +296,9 @@ fn insert_following(
         };
         let fresh: Vec<String> = table
             .lookup(&key)
-            .iter()
-            .filter(|entry| !items.iter().any(|c| &c.text == *entry))
+            .filter(|entry| !items.iter().any(|c| c.text == *entry))
             .take(per_word)
-            .cloned()
+            .map(str::to_owned)
             .collect();
         if fresh.is_empty() {
             continue;

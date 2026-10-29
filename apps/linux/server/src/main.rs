@@ -52,7 +52,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         language_model: LanguageModelFiles::find(&root.join("data/generated")),
         bundled_dicts_dir: Some(root.join("data/generated/dicts")),
         dictionaries: config.dictionaries.clone(),
-        levels_dir: Some(root.join("assets/levels")),
         user_dir: Some(user_dir.clone()),
         input_log: config.general.input_log,
         log_dir: Some(paths::log_dir()),
@@ -70,20 +69,25 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.set_shuangpin(config.general.shuangpin());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.set_hold_selections(config.general.hold_selections);
+    engine.set_context_memory(config.model.context_memory_seconds);
     engine.set_zhuyin_mode(config.general.is_zhuyin());
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_learning(config.general.learning);
     engine.set_chinese_first(config.general.chinese_first);
+    engine.set_spelling_correction(config.general.spelling_correction);
     engine.set_emoji_limit(usize::from(config.general.emoji.get()));
     engine.set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
     engine.set_symbol_limit(usize::from(config.general.symbols.get()));
     engine.set_traditional(config.general.traditional());
     engine.set_english_in_chinese(config.general.english_in_chinese);
+    engine.set_english_max_in_chinese(config.general.english_max_in_chinese());
+    engine.set_english_min_position(config.general.english_min_position());
     engine.set_mode_keys(config.shortcut.mode);
     engine
         .set_custom_phrases(config.custom_phrases.clone())
         .map_err(std::io::Error::other)?;
-    assembly::attach_cloud(&mut engine, &config.predict);
+    let usage_path = user_dir.join(qingjian_predict::API_USAGE_FILE);
+    assembly::attach_cloud(&mut engine, &config.predict, Some(usage_path));
     engine.log_session(env!("CARGO_PKG_VERSION"), "linux");
     let mut router = Router::new(engine, RouterConfig::from(&config));
     router.configure_local_model(find_model(Some(&user_dir), &root), &config.model);
@@ -95,7 +99,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         libc::signal(libc::SIGTERM, stop as *const () as libc::sighandler_t);
         libc::signal(libc::SIGINT, stop as *const () as libc::sighandler_t);
     }
-    let socket = qingjian_linux_server::ipc::socket_path();
+    let socket = qingjian_platform::protocol::linux::socket_path();
     tracing::info!(path = %socket.display(), "青简 Linux Server 启动");
     qingjian_linux_server::ipc::serve_socket(socket, &mut router)?;
     Ok(())

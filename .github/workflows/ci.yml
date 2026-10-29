@@ -1,4 +1,4 @@
-# 三个 job：Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳）；macOS 与 Windows runner 各编各的壳并跑平台测试，
+# Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳）；macOS 与 Windows runner 各编各的壳并跑平台测试，Android 编 debug APK，
 # 平台特有的编译错（Objective-C 调用、TSF 导出、WinUI）在 PR 里就暴露，不等发版。仓库公开，Actions 不计费。
 # actions 一律钉到 commit（注释里是对应的标签），Dependabot 每周提 PR 更新；cargo 全加 --locked，Cargo.lock 没提交就报错。
 name: ci
@@ -34,10 +34,23 @@ jobs:
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
+      # runner 的 apt 镜像偶尔只有 100 kB/s，平时 20 秒的这一步会拖到 18 分钟撞上超时。
+      # 下载的 .deb 放进缓存，按周换键，镜像慢时也只下这周新出的版本。
+      - name: Week for apt cache key
+        id: apt-week
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archives
+          key: apt-ubuntu-26.04-${{ steps.apt-week.outputs.week }}
+          restore-keys: apt-ubuntu-26.04-
+
       - name: Install Fcitx5 build and test dependencies
         run: |
+          mkdir -p ~/apt-archives/partial
           sudo apt-get update
-          sudo apt-get install -y cmake g++ libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev nlohmann-json3-dev fcitx5
+          sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" cmake g++ libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev nlohmann-json3-dev fcitx5
 
       - name: Format
         run: cargo fmt --all --check
@@ -89,8 +102,11 @@ jobs:
       # 改共用的 connection.cpp 时 Fcitx4 那侧编不过，只有装到 22.04 上才会发现。
       # 它自带一个 CTest（test-surrounding，同样共用 ../tests/surrounding.cpp），一起跑。
       # 26.04 上装 fcitx-libs-dev 会把 fcitx5 卸掉，所以等 Fcitx5 的测试跑完再装
+      # 缓存在 job 结束时打包，apt 建的 partial/ 归 _apt 所有、runner 读不了，装完交回 runner
       - name: Install Fcitx4 build dependencies
-        run: sudo apt-get install -y fcitx-libs-dev libx11-dev libxres-dev
+        run: |
+          sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" fcitx-libs-dev libx11-dev libxres-dev
+          sudo chown -R "$USER" ~/apt-archives
 
       - name: Configure Fcitx4 shell
         run: cmake -S apps/linux/fcitx4 -B target/fcitx4-stage1 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
@@ -217,6 +233,45 @@ jobs:
       # 再跑一遍 workspace 测试：老 glibc 上某个依赖编不过或行为不同，在这里暴露。
       - name: Test
         run: cargo test --workspace --exclude qingjian-macos --locked
+
+  # Kotlin 与 Gradle 只有这里编；data/generated/ 不在仓库里，带的是随包样例数据
+  android:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    env:
+      NDK_VERSION: 29.0.13599879
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.96.0
+          targets: aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      # Gradle 8.14 只认到 JDK 24，runner 缺省的是 25
+      - name: Use JDK 21
+        run: |
+          if [[ ! -d "${JAVA_HOME_21_X64:-}" ]]; then
+            echo "runner 上没有 JDK 21（JAVA_HOME_21_X64）：" >&2
+            ls /usr/lib/jvm >&2
+            exit 1
+          fi
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+
+      # NDK 版本要与 app/build.gradle.kts 的 ndkVersion 一致
+      - name: Install NDK and cargo-ndk
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-36" > /dev/null
+          cargo install cargo-ndk --version 4.1.2 --locked
+          echo "sdk.dir=$ANDROID_HOME" > apps/android/local.properties
+
+      - name: Build debug APK
+        working-directory: apps/android
+        run: ./gradlew assembleDebug --no-daemon --console=plain
 
   windows:
     runs-on: windows-latest

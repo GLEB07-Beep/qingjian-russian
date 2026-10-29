@@ -15,10 +15,12 @@ mod legacy_traditional;
 mod log_level;
 mod model;
 mod modifiers;
+mod numpad_digit;
 mod optional_key_combo;
 mod page_keys;
 mod phrases;
 mod preedit_mode;
+mod retired;
 mod scheme;
 mod shift_letter;
 mod shortcut;
@@ -57,8 +59,9 @@ pub use key_hint_mode::KeyHintMode;
 pub use layout_mode::LayoutMode;
 pub use legacy_traditional::LegacyTraditional;
 pub use log_level::LogLevel;
-pub use model::LocalModelConfig;
+pub use model::{LocalModel, LocalModelConfig, ZhiyiTier};
 pub use modifiers::Modifiers;
+pub use numpad_digit::NumpadDigit;
 pub use page_keys::PageKeys;
 pub use preedit_mode::PreeditMode;
 pub use scheme::{Scheme, scheme_label, scheme_name};
@@ -137,7 +140,7 @@ english_candidates_on = [
 macro_rules! template_apps {
     () => {
         r#"[apps]
-# 按应用改行为，条目是 bundle identifier（`*` 结尾按前缀匹配）。开着「详细日志」时切到一个应用会把它的 bundle identifier 记进日志
+# 按应用改行为，条目是 bundle identifier（`*` 结尾按前缀匹配）。切到一个应用时运行日志里会记下它的 bundle identifier
 # 英文模式（Caps Lock）下给候选的应用（白名单）：浏览器、聊天、办公与笔记这类写成段文字的地方。没列的应用里英文字母原样交给应用，
 # 免得挡住终端 / 编辑器自己的补全，或吞掉设计、3D 软件的单键快捷键。写成 ["*"] 就处处都给，再用 english_candidates_off 排除个别应用
 english_candidates_on = [
@@ -173,9 +176,10 @@ english_candidates_on = [
 #[cfg(target_os = "macos")]
 macro_rules! template_shortcut_keys {
     () => {
-        r#"# 中 / 英模式切换键（Windows 用），可多选：shift 单击（缺省）/ control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
-# macOS 的切换键是 Caps Lock（系统级），本项不生效
-switch_mode = ["shift"]
+        r#"# 中 / 英模式切换键，可多选：shift 单击 / control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
+# macOS 只认 shift：写成 ["shift"] 就是单击 Shift 切中英（此时 Caps Lock 只管大小写）；
+# 缺省 [] —— 用 Caps Lock 切换（系统级，不受本项影响）
+switch_mode = []
 # 数字键配这些修饰键上屏候选的译词：translation 第一个译词，translation_second 第二个（候选右侧有两个译词时）
 # 任意修饰键组合（option / shift / control / command 用 + 连），偏好设置里点按钮录制；别用 control+数字（系统切桌面）和 command+数字（应用切标签页）
 translation = "option"
@@ -183,8 +187,6 @@ translation_second = "shift+option"
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 # 修饰键 + 一个字母或数字，任意组合；避开 ⌘T 这类应用常用键
 translate_selection = "control+option+t"
-# 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
-delete_candidate = "shift"
 "#
     };
 }
@@ -200,8 +202,6 @@ translation = "alt"
 translation_second = "shift+alt"
 # 把应用里选中的文字译成学习语言（要开着云服务）；Ctrl + Alt + T 常被桌面占用来打开终端
 translate_selection = "alt+shift+t"
-# 数字键配这些修饰键删掉候选
-delete_candidate = "shift"
 "#
     };
 }
@@ -221,8 +221,6 @@ translation_second = "shift+ctrl"
 translate_selection = "ctrl+alt+t"
 # Windows 组句中按需调用 AI
 predict = "ctrl+alt+j"
-# 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
-delete_candidate = "shift"
 "#
     };
 }
@@ -268,8 +266,14 @@ english_candidates = true
 traditional_variant = "off"
 # 中文模式下整段输入是英文词时（hello / key）是否让中文候选排第一、英文词第二；缺省 false：拼音不像话的输入英文词排第一
 chinese_first = false
+# 拼写纠错：拼音敲错时给纠正后的候选（nihooma → 你好吗）；敲的拼音照原样读得通时纠正只当备选。false 时只按敲的原样读
+spelling_correction = true
 # 中文模式下整段是英文词或英文词的开头时给英文候选与补全（hello、compa → company）；false 时中文模式只出中文，英文模式不受影响
 english_in_chinese = true
+# 中文模式下英文候选（精确词 + 补全）最多几个，1–4；1 时只留最靠前的一条
+english_max_in_chinese = 4
+# 有中文候选时英文最高排到第几位，1–9；1 为不限制，没有中文候选时英文照旧第一
+english_min_position = 1
 # 候选后面一次最多配几个 emoji（kaixin → 开心 😄），0–3；0 时候选里只有字词
 emoji = 3
 # 候选后面一次最多配几个颜文字（ku → 哭 (T_T)），0–3
@@ -281,6 +285,8 @@ auto_space = false
 # 中文模式下按住 Shift 敲的字母：passthrough 拼音原样上屏、字母交给应用（缺省，与以前一致）/ compose 收进组句
 # 缓冲区参与匹配，这样 Cpan 与 cpan 一样能出「C盘」。英文模式与英文直输段（no-Way）不受影响
 shift_letter = "passthrough"
+# Windows 中文组句中的小键盘数字：select 选择候选（缺省）/ direct 直接输入数字；主键盘数字不受影响
+numpad_digit = "select"
 # 内置英文模式：开着时单击切换键（[shortcut] switch_mode）或 Caps Lock 亮着进英文模式
 # 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键（Win+Space）切到别的输入法。Windows 与 Linux 用，macOS 的中英切换是 Caps Lock
 english_mode = true
@@ -310,6 +316,8 @@ aux_code_keep_empty = true
 scheme = ""
 # 双拼方案下 preedit 显示原始按键（如 ljse）还是展开成全拼（lan'se）；缺省 false（展开成全拼）
 shuangpin_raw_preedit = false
+# 双拼方案下候选窗口的拼音行显示原始按键还是全拼，与上一项各管各的；缺省 false（全拼）；macOS、Windows 用
+shuangpin_raw_window = false
 # 一段拼音分几次选完时，先选的词留在输入框里、整段选完才一起上屏，退格先撤回最后一次选择；false 为选了就上屏
 hold_selections = true
 # 形码方案：留空或 off 为关，wubi86 为五笔（86 版），也可以写用户数据目录 schemes/ 下自己放的方案目录名。
@@ -323,19 +331,21 @@ log_level = "info"
 input_log = true
 # 学习输入习惯：按你的选择调整候选顺序、记新词与敲错纠正。false 不再学，已学的仍参与排序；学习数据在数据目录，删掉文件即清空
 learning = true
-# 把系统设置「键盘 → 文本替换」里的条目当自定义短语：输入码（小写字母）敲全后短语出现在该码最靠前的空位；只有 macOS 用
+# 把系统设置「键盘 → 文本替换」里的条目当自定义短语：输入码（小写字母）敲全后出现，排在同权重的自定义短语之后；只有 macOS 用
 system_text_replacements = true
 
-# 自定义短语示例：取消下面各行注释后启用；同码同位置不能重复。
+# 自定义短语示例：取消下面各行注释后启用；同一个输入码下按权重从高到低排在普通候选前面。
 # [[custom_phrases]]
 # code = "ww"       # 输入码：1–32 个小写英文字母
 # text = "；"       # 原样上屏的文本，可包含空格与换行
-# position = 1      # 固定候选位置：1–9
-# enabled = true    # 是否启用；停用仍保留位置
+# weight = 10       # 权重：1–999，可以相同，相同的按文件里的先后
+# enabled = true    # 是否启用
 
 [shortcut]
 # Windows：切换当前模式的全 / 半角标点；空串禁用，可设为 "ctrl+." 或其他修饰键加字母、数字、句号
 toggle_punctuation = ""
+# Windows：在简体与上次用的繁体字形之间切换；空串禁用，可设为 "ctrl+shift+f" 或其他修饰键加字母、数字
+toggle_traditional = ""
 # Windows：主翻页键之外同时启用的键对，可多选，如 ["[]", ",.", "-="]
 extra_page_keys = []
 # 前缀模式键，只能是 v / u / i 之一且互不相同（这三个字母不是任何拼音音节的开头）
@@ -383,8 +393,14 @@ enabled = false
 disabled = []
 
 [model]
-# 本地整句模型：随包的小模型在本机给整句候选重新排序，全程离线；停顿后几十毫秒生效。关掉只用词库统计
-enabled = true
+# 本地模型：在本机给整句候选重新排序或直接造句，全程离线；停顿后几十毫秒生效。缺省关，只用词库统计
+enabled = false
+# 用哪个：tongbian 含章·通变（按拼音造句）/ zhiyi 知意（按前文挑首选）；先在设置的「实验功能」里下载（Linux 随包带通变），没下载就不用模型
+name = "tongbian"
+# 知意的档位：saver 省电 / balanced 均衡 / accurate 准确（比的候选更多、看的前文更长，也更费电）
+zhiyi_tier = "balanced"
+# 应用读不到光标前的文字时，拿这个应用、这个输入框里刚打的字当前文；多少秒没打字就不算（0 表示一直算）
+context_memory_seconds = 60
 
 [predict]
 # 云联想：把光标附近的文本发到下面的接口，让模型补全整句 / 联想下文。默认关闭。
@@ -474,7 +490,7 @@ impl Config {
             }
         }
         let mut used = std::collections::BTreeSet::new();
-        // 先按输入码和位置匹配，重排或删除时注释跟随原规则。
+        // 先按输入码和文本匹配，重排或删除时注释跟随原规则。
         let mut matches: Vec<_> = phrases
             .iter()
             .map(|p| {
@@ -483,8 +499,8 @@ impl Config {
                     .enumerate()
                     .find(|(_, t)| {
                         t.get("code").and_then(toml_edit::Item::as_str) == Some(p.code.as_str())
-                            && t.get("position").and_then(toml_edit::Item::as_integer)
-                                == Some(p.position as i64)
+                            && t.get("text").and_then(toml_edit::Item::as_str)
+                                == Some(p.text.as_str())
                     })
                     .map(|(i, _)| i);
                 if let Some(i) = found {
@@ -493,7 +509,7 @@ impl Config {
                 found
             })
             .collect();
-        // 等长列表中修改了输入码或位置的条目，沿用其未被占用的原表。
+        // 等长列表中修改了输入码或文本的条目，沿用其未被占用的原表。
         if old.len() == phrases.len() {
             for (i, matched) in matches.iter_mut().enumerate() {
                 if matched.is_none() && used.insert(i) {
@@ -507,10 +523,13 @@ impl Config {
                 .and_then(|i| old.get(i))
                 .cloned()
                 .unwrap_or_default();
+            if t.contains_key("position") {
+                t = phrases::position_to_weight(&t);
+            }
             for (key, mut value) in [
                 ("code", toml_edit::Value::from(p.code.as_str())),
                 ("text", toml_edit::Value::from(p.text.as_str())),
-                ("position", toml_edit::Value::from(p.position as i64)),
+                ("weight", toml_edit::Value::from(i64::from(p.weight))),
                 ("enabled", toml_edit::Value::from(p.enabled)),
             ] {
                 if let Some(previous) = t.get(key).and_then(toml_edit::Item::as_value) {

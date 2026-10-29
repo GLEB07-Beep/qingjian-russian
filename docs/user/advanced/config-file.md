@@ -20,7 +20,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 
 - 保存后一秒内生效，不用重新切换输入法。Linux 上 `[general]` 的 `preedit` 与 `input_log` 例外，改完要重启青简。
 - 写错时沿用上一份可用的设置，输入法不退出；macOS 的输入法菜单会多一条灰色的错误说明，按说明改回并保存即可。
-- 某一条自定义短语写错（位置不在 1–9、内容不是文字、与前面的条目占同一个位置等）只跳过那一条，其余照常生效，运行日志里记下是第几条、错在哪；在设置窗口里保存短语时，跳过的条目原样留在文件里。
+- 某一条自定义短语写错（权重不在 1–999、内容不是文字、与前面的条目同码同内容等）只跳过那一条，其余照常生效，运行日志里记下是第几条、错在哪；在设置窗口里保存短语时，跳过的条目原样留在文件里。
 - 一个分节（如 `[general]`）只写一次；要改的项写在已有的分节下面。
 
 ## 配置项与设置界面
@@ -36,7 +36,11 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[general] learning` | 候选 → 学习输入习惯 | `true` / `false` |
 | `[general] learning_language` | 候选 → 译文 | `off` 为不显示译词 |
 | `[general] english_in_chinese` | 候选 → 打拼音时也给英文词 | `true` / `false` |
-| `[model] enabled` | 候选 → 本地整句模型 | `true` / `false` |
+| `[general] english_max_in_chinese` | 候选 → 英文候选最多几个 | `1`–`4`，缺省 `4` |
+| `[general] english_min_position` | 候选 → 英文词最高排到第几位 | `1`–`9`，缺省 `1`（不限） |
+| `[model] enabled` | 候选 → 本地整句模型 | `true` / `false`（缺省） |
+| `[model] name`、`zhiyi_tier` | 实验功能 → 用哪个模型、知意的档位 | `name`：`tongbian`（缺省）、`zhiyi`，选了没下载的不用模型（旧的 `zhiwei` 按 `tongbian` 读）；`zhiyi_tier`：`saver`、`balanced`（缺省）、`accurate` |
+| `[model] context_memory_seconds` | 只在配置文件里 | 应用不给光标前文时，刚打的字算作前文的时长，缺省 60，0 为一直算 |
 | `[general] english_mode` | 中英文 → 英文模式 | `false` 为固定中文 |
 | `[shortcut] switch_mode` | 中英文 → 切换键 | 列表，如 `["shift", "control"]` |
 | `[general] default_english`、`remember_mode_per_app` | 中英文 → 默认英文模式、按应用记住中英模式 | `true` / `false` |
@@ -47,6 +51,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] extra_page_keys` | 快捷键 → 额外翻页键 | 列表，如 `["[]", ",.", "-="]`，缺省为空 |
 | `[shortcut] highlight_keys` | 快捷键 → 高亮移动键 | 上下或左右 |
 | `[shortcut] toggle_punctuation` | 快捷键 → Ctrl + . 切换全半角标点 | 空串为关闭，`"ctrl+."` 为 Ctrl + 句号；也可写成修饰键加字母、数字或句号，如 `"ctrl+shift+."` |
+| `[shortcut] toggle_traditional` | 快捷键 → Ctrl + Shift + F 切换简繁输出 | 空串为关闭（缺省），`"ctrl+shift+f"` 为 Ctrl + Shift + F；也可写成修饰键加字母或数字。只有 Windows 用 |
 | `[shortcut] translate_selection` | 快捷键 → 翻译选中文字 | 如 `"alt+shift+t"` |
 | `[shortcut] predict` | 快捷键 → 按需 AI 联想 | 完整的组合键，设置界面只改修饰键 |
 | `[predict]` 一节 | 云服务 | 见下文 |

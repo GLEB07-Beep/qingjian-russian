@@ -1,8 +1,9 @@
 //! 按键怎么作用到 Engine / 高亮上。分流规则与 macOS 壳的 `handle_text` / `handle_command` 对齐。
 
-use qingjian_core::{QUESTION_PREFIX, punctuation, shortcut};
-use qingjian_platform::HighlightKeys;
+use qingjian_core::candidate::arrows::{self, Arrow, ArrowAction, Focus};
+use qingjian_core::{CandidateKind, QUESTION_PREFIX, punctuation};
 use qingjian_platform::protocol::KeyEvent;
+use qingjian_platform::{HighlightKeys, NumpadDigit};
 
 use super::{Effect, codes, with_prefix};
 use crate::dispatch::Router;
@@ -11,6 +12,13 @@ impl Router {
     /// 功能键靠键码，其余靠字符。组句中修饰键 + 数字是快捷键；带 Ctrl / Alt / Win 而没配到快捷键的键归应用。
     /// 表达式模式里 Shift + 数字打的是 `^ * ( )`，不当快捷键。
     pub(crate) fn apply_key(&mut self, event: &KeyEvent) -> Effect {
+        if self.config.toggle_traditional.is_some_and(|combo| {
+            event.virtual_key == combo.key.to_ascii_uppercase() as u32
+                && event.modifiers.chord() == combo.modifiers.into()
+        }) {
+            self.toggle_traditional();
+            return Effect::Changed(None);
+        }
         if let Some(effect) = self.apply_panel_key(event) {
             return effect;
         }
@@ -170,6 +178,7 @@ impl Router {
                     Effect::Navigated
                 }
             },
+            codes::DOWN if self.config.two_area_arrows() => self.two_area_key(Arrow::Down),
             codes::DOWN => {
                 // 横排矩阵开着：↓ 展开成矩阵 / 往下换行；否则按 highlight_keys 移高亮
                 if self.config.grid_keys() {
@@ -180,7 +189,14 @@ impl Router {
                 }
             }
             // 高亮还在第一个、没动过时 ↑ 没处可去，拿来开符号面板（矩阵开着时也一样，`↓` 照旧展开矩阵）
-            codes::UP if self.open_panel_from_key() => Effect::Navigated,
+            // 方向键分两区时候选里的 ↑ 是回拼音行，要在拼音行里再按一次才开面板
+            codes::UP
+                if (!self.config.two_area_arrows() || self.focus == Focus::Pinyin)
+                    && self.open_panel_from_key() =>
+            {
+                Effect::Navigated
+            }
+            codes::UP if self.config.two_area_arrows() => self.two_area_key(Arrow::Up),
             codes::UP => {
                 if self.config.grid_keys() {
                     // ↑ 顶在第一排再往上：回到第一个候选（不是毫无动作）
@@ -200,6 +216,8 @@ impl Router {
                 self.page(-1);
                 Effect::Navigated
             }
+            codes::LEFT if self.config.two_area_arrows() => self.two_area_key(Arrow::Left),
+            codes::RIGHT if self.config.two_area_arrows() => self.two_area_key(Arrow::Right),
             codes::LEFT => self.horizontal_key(-1),
             codes::RIGHT => self.horizontal_key(1),
             codes::HOME => {
@@ -212,6 +230,36 @@ impl Router {
             }
             _ => Effect::Passthrough,
         }
+    }
+
+    /// 横排、高亮移动键选 `←` / `→` 时（`RouterConfig::two_area_arrows`）方向键照 Core 的 `arrows::route` 在拼音行与候选两区之间走，
+    /// 规则与 macOS 壳的 `two_area_arrow` 同一份。没有候选时 ← / → 照旧移拼音光标。
+    fn two_area_key(&mut self, arrow: Arrow) -> Effect {
+        if self.candidate_count() == 0 {
+            return match arrow {
+                Arrow::Left | Arrow::Right => {
+                    self.move_caret(if arrow == Arrow::Left { -1 } else { 1 });
+                    Effect::Changed(None)
+                }
+                Arrow::Up | Arrow::Down => Effect::Navigated,
+            };
+        }
+        match arrows::route(arrow, self.focus, self.matrix()) {
+            ArrowAction::MoveCursor(delta) => {
+                self.move_caret(delta);
+                return Effect::Changed(None);
+            }
+            ArrowAction::MoveHighlight(delta) => self.move_cells_or_highlight(delta),
+            ArrowAction::MoveRow(delta) => {
+                self.move_rows(delta);
+            }
+            ArrowAction::Expand => {
+                self.move_rows(1);
+            }
+            ArrowAction::Focus(focus) => self.focus = focus,
+            ArrowAction::Stay => {}
+        }
+        Effect::Navigated
     }
 
     /// `↑` / `↓`：按 `[shortcut] highlight_keys` 移高亮。高亮键配成 `←` / `→` 时它俩没活干，
@@ -387,7 +435,7 @@ impl Router {
     /// 微软 / 搜狗双拼的 `;` 是 ing 键，末尾有落单声母时进缓冲区。
     fn apply_printable(&mut self, c: char, event: &KeyEvent) -> Effect {
         let expression = self.engine.expression_mode();
-        if (expression && shortcut::is_expression_char(c))
+        if self.engine.expression_input(c)
             || (self.engine.unicode_entry() && (c.is_ascii_digit() || c == '+'))
             || (c == ';' && self.engine.takes_semicolon())
         {
@@ -395,10 +443,16 @@ impl Router {
             return Effect::Changed(None);
         }
         // 英文直输段（缓冲区里已有 `-` 这类字符）：可见字符一律追加，数字与翻页键也不再选词 / 翻页；
-        // 空格整段原样上屏，空格本身也要在（`hello, world`）。
+        // 空格整段原样上屏，空格本身也要在（`hello, world`）；高亮挪到邮箱地址上时只上屏地址。
         if self.engine.raw_mode() {
             if c == ' ' {
+                let address = self
+                    .layout_candidate(self.highlight)
+                    .is_some_and(|candidate| candidate.kind == CandidateKind::Shortcut);
                 let committed = self.commit_highlighted();
+                if address {
+                    return Effect::Changed(Some(committed));
+                }
                 self.engine.note_passthrough(c);
                 return with_prefix(Some(committed), Effect::Passthrough, c);
             }
@@ -406,6 +460,18 @@ impl Router {
                 self.engine.push(c);
                 return Effect::Changed(None);
             }
+        }
+        // 只改普通中文组句；表达式、码点、问字与注音保留各自数字键语义。
+        if self.config.numpad_digit == NumpadDigit::Direct
+            && (0x60..=0x69).contains(&event.virtual_key)
+            && c.is_ascii_digit()
+            && !expression
+            && !self.engine.question_mode()
+            && !self.engine.is_zhuyin_mode()
+        {
+            self.engine.clear_aux();
+            self.engine.push(c);
+            return Effect::Changed(None);
         }
         // 辅码触发键：拼音打完整了、这个键也没被键盘方案吃掉 → 进辅码态（触发键不进缓冲区）
         if self.engine.aux_trigger(c) {

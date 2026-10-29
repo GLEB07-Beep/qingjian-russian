@@ -1,6 +1,7 @@
 //! 启动：加载词库 / 语言模型 / 释义表 / 学习数据，建 Engine 与候选窗口，装进线程局部的 HOST。
 
 use super::*;
+use crate::candidates::MenuHandlers;
 
 /// 加载数据并建立单例。必须在主线程、在 IMKServer 建立之前调用。版本显示在菜单末行与「关于」页。
 pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
@@ -118,12 +119,18 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     let window = CandidateWindow::new(mtm);
     window.set_click_handler(Box::new(crate::imk::click));
     window.set_panel_mouse_handler(Box::new(crate::imk::panel_mouse));
+    window.set_menu_handlers(MenuHandlers {
+        items: Box::new(crate::imk::menu_items),
+        pick: std::rc::Rc::new(crate::imk::menu_pick),
+    });
     let mut indicator = ModeIndicator::new(mtm);
     let menu = InputMenu::new(mtm, version);
     indicator.set_menu(&menu.ns_menu());
     let preferences = PreferencesWindow::new(mtm, &languages, version, &info.build);
     let monitor = PredictMonitor::new(mtm);
     let watch = ConfigWatch::new(mtm);
+    let mode_switch = ModeSwitch::default();
+    let osd = ModeOsd::new(mtm);
     HOST.with(|host| {
         *host.borrow_mut() = Some(Host {
             engine,
@@ -133,6 +140,10 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             preferences,
             settings,
             watch,
+            mode_switch,
+            osd,
+            last_osd_english: None,
+            last_osd_caps: None,
             themes: qingjian_render::ThemeLibrary::load(paths::themes_dir().as_deref()),
             last_flush: std::time::Instant::now(),
             applied_predict: PredictConfig::default(),
@@ -154,13 +165,13 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             punct_commits: false,
             scheme_slot: Default::default(),
             translation_keys: ShortcutConfig::default().translation_keys(),
-            delete_keys: ShortcutConfig::default().delete_keys(),
             status: None,
             input_log_enabled: None,
             translate_keys: KeyCombo::TRANSLATE_DEFAULT,
             punctuation_keys: None,
             predict_keys: KeyCombo::PREDICT_DEFAULT,
             manual_prediction: None,
+            candidate_translation: None,
             translation: None,
             notice: None,
             key_hint_mode: KeyHintMode::default(),
@@ -184,6 +195,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
                 .map(|dir| qingjian_update::Checker::new(dir.join(UPDATE_STATE_FILE), version)),
             update_status: UpdateStatus::default(),
             session: Session::default(),
+            trace: None,
             sentence: None,
             anchor: NSRect::ZERO,
         })

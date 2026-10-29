@@ -18,6 +18,8 @@ pub enum Feature {
     Schemes,
     /// 中英文切换键。
     SwitchKeys,
+    /// 切换键里的单击 Ctrl 与 Ctrl + Alt + Space：macOS 只认单击 Shift。
+    SwitchKeyCombos,
     /// 切换键里的「Ctrl + Space（系统）」：改的是 Windows 的系统热键。
     SystemCtrlSpace,
     DefaultEnglish,
@@ -31,6 +33,8 @@ pub enum Feature {
     ExtraPageKeys,
     HighlightKeys,
     TogglePunctuation,
+    /// 简体与上次用的繁体之间切换输出字形。
+    ToggleTraditional,
     SystemTextReplacements,
     /// 统计页的云服务用量，测试连接也记进去。
     ApiUsage,
@@ -42,14 +46,21 @@ pub enum Feature {
     KeyHint,
     /// 拼音行按高亮候选显示带调拼音。
     ShowTones,
+    /// 「实验功能」页：下载、启用知意与含章·通变。
+    ExperimentalModels,
+    /// 中文组句中的小键盘数字：选候选还是进组句。
+    NumpadDigit,
+    /// 双拼候选窗口的拼音行显示敲的键。
+    ShuangpinRawWindow,
 }
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 19] = [
+    pub const ALL: [Self; 24] = [
         Self::AuxCode,
         Self::Schemes,
         Self::SwitchKeys,
+        Self::SwitchKeyCombos,
         Self::SystemCtrlSpace,
         Self::DefaultEnglish,
         Self::RememberModePerApp,
@@ -60,12 +71,16 @@ impl Feature {
         Self::ExtraPageKeys,
         Self::HighlightKeys,
         Self::TogglePunctuation,
+        Self::ToggleTraditional,
         Self::SystemTextReplacements,
         Self::ApiUsage,
         Self::CloudRequestControls,
         Self::VocabularyTranslation,
         Self::KeyHint,
         Self::ShowTones,
+        Self::ExperimentalModels,
+        Self::NumpadDigit,
+        Self::ShuangpinRawWindow,
     ];
 
     /// 当前平台显示这一项。
@@ -88,8 +103,9 @@ impl Feature {
         match self {
             Self::AuxCode => [Yes, Yes, Todo],
             Self::Schemes => [Yes, Yes, Todo],
-            // macOS 用 Caps Lock，由系统决定
-            Self::SwitchKeys => [No, Yes, Yes],
+            Self::SwitchKeys => [Yes, Yes, Yes],
+            // macOS 只做了单击 Shift，Caps Lock 仍是系统那一套
+            Self::SwitchKeyCombos => [No, Yes, Yes],
             Self::SystemCtrlSpace => [No, Yes, No],
             Self::DefaultEnglish => [Todo, Yes, Yes],
             Self::RememberModePerApp => [Todo, Yes, Todo],
@@ -103,16 +119,20 @@ impl Feature {
             Self::ExtraPageKeys => [Yes, Yes, Todo],
             Self::HighlightKeys => [Yes, Yes, Todo],
             Self::TogglePunctuation => [Yes, Yes, Todo],
+            Self::ToggleTraditional => [Todo, Yes, Todo],
             // 系统的文本替换只有 macOS 有
             Self::SystemTextReplacements => [Yes, No, No],
-            // Linux 已接云服务，尚未记录云服务用量
-            Self::ApiUsage => [Yes, Yes, Todo],
-            Self::CloudRequestControls => [Yes, Yes, Todo],
-            // Linux 还没接释义兜底
-            Self::VocabularyTranslation => [Yes, Yes, Todo],
+            Self::ApiUsage => [Yes, Yes, Yes],
+            Self::CloudRequestControls => [Yes, Yes, Yes],
+            Self::VocabularyTranslation => [Yes, Yes, Yes],
             Self::KeyHint => [Yes, Yes, Todo],
             // Fcitx 面板与应用里的行内拼音共用一串，还没分开
             Self::ShowTones => [Yes, Yes, Todo],
+            // Windows、Linux 的服务进程还没接知意；没有 GPU 时 CPU 上打分要发烫，先只开 macOS（Metal）
+            Self::ExperimentalModels => [Yes, Yes, Todo],
+            Self::NumpadDigit => [Todo, Yes, Todo],
+            // Fcitx 面板与应用里的行内拼音共用一串，还没分开
+            Self::ShuangpinRawWindow => [Yes, Yes, Todo],
         }
     }
 
@@ -123,6 +143,7 @@ impl Feature {
             Self::AuxCode => "辅码",
             Self::Schemes => "形码与自定义方案",
             Self::SwitchKeys => "中英文切换键",
+            Self::SwitchKeyCombos => "单击 Ctrl 与 Ctrl + Alt + Space 切换",
             Self::SystemCtrlSpace => "系统的 Ctrl + Space",
             Self::DefaultEnglish => "默认英文模式",
             Self::RememberModePerApp => "按应用记住中英模式",
@@ -133,12 +154,16 @@ impl Feature {
             Self::ExtraPageKeys => "额外翻页键",
             Self::HighlightKeys => "高亮移动键",
             Self::TogglePunctuation => "Ctrl + . 切换全半角标点",
+            Self::ToggleTraditional => "Ctrl + Shift + F 切换简繁输出",
             Self::SystemTextReplacements => "也用系统的文本替换",
             Self::ApiUsage => "云服务用量统计",
             Self::CloudRequestControls => "按需云联想与请求节奏",
             Self::VocabularyTranslation => "生词本整句翻译",
             Self::KeyHint => "双拼键位提示",
             Self::ShowTones => "拼音行显示声调",
+            Self::ExperimentalModels => "实验功能（知意、含章·通变）",
+            Self::NumpadDigit => "小键盘数字",
+            Self::ShuangpinRawWindow => "双拼候选窗显示按键",
         }
     }
 
@@ -159,6 +184,7 @@ impl Feature {
             Self::ExtraPageKeys => &[(PageId::Shortcuts, "额外翻页键")],
             Self::HighlightKeys => &[(PageId::Shortcuts, "高亮移动键")],
             Self::TogglePunctuation => &[(PageId::Shortcuts, "Ctrl + . 切换全半角标点")],
+            Self::ToggleTraditional => &[(PageId::Shortcuts, "Ctrl + Shift + F 切换简繁输出")],
             Self::SystemTextReplacements => &[(PageId::Phrases, "也用系统的文本替换")],
             Self::CloudRequestControls => &[
                 (PageId::Cloud, "自动联想"),
@@ -169,11 +195,15 @@ impl Feature {
             Self::VocabularyTranslation => &[(PageId::Cloud, "生词本整句翻译")],
             Self::KeyHint => &[(PageId::Input, "键位提示")],
             Self::ShowTones => &[(PageId::Candidates, "拼音行显示声调")],
-            Self::SystemCtrlSpace
+            Self::NumpadDigit => &[(PageId::Candidates, "小键盘数字")],
+            Self::ShuangpinRawWindow => &[(PageId::Input, "候选窗显示按键")],
+            Self::SwitchKeyCombos
+            | Self::SystemCtrlSpace
             | Self::EnglishPunctuation
             | Self::StatusBar
             | Self::HorizontalGrid
-            | Self::ApiUsage => &[],
+            | Self::ApiUsage
+            | Self::ExperimentalModels => &[],
         }
     }
 }

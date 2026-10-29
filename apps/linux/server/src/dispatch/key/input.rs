@@ -1,6 +1,6 @@
 //! 按键怎么作用到 Engine / 高亮上。分流规则与 macOS 壳的 `handle_text` / `handle_command` 对齐。
 
-use qingjian_core::{QUESTION_PREFIX, punctuation, shortcut};
+use qingjian_core::{CandidateKind, QUESTION_PREFIX, punctuation};
 use qingjian_platform::protocol::KeyEvent;
 
 use super::{Effect, codes, with_prefix};
@@ -261,7 +261,7 @@ impl Router {
     /// 微软 / 搜狗双拼的 `;` 是 ing 键，末尾有落单声母时进缓冲区。
     fn apply_printable(&mut self, c: char, event: &KeyEvent) -> Effect {
         let expression = self.engine.expression_mode();
-        if (expression && shortcut::is_expression_char(c))
+        if self.engine.expression_input(c)
             || (self.engine.unicode_entry() && (c.is_ascii_digit() || c == '+'))
             || (c == ';' && self.engine.takes_semicolon())
         {
@@ -269,10 +269,16 @@ impl Router {
             return Effect::Changed(None);
         }
         // 英文直输段（缓冲区里已有 `-` 这类字符）：可见字符一律追加，数字与翻页键也不再选词 / 翻页；
-        // 空格整段原样上屏，空格本身也要在（`hello, world`）。
+        // 空格整段原样上屏，空格本身也要在（`hello, world`）；高亮挪到邮箱地址上时只上屏地址。
         if self.engine.raw_mode() {
             if c == ' ' {
+                let address = self
+                    .layout_candidate(self.highlight)
+                    .is_some_and(|candidate| candidate.kind == CandidateKind::Shortcut);
                 let committed = self.commit_highlighted();
+                if address {
+                    return Effect::Changed(Some(committed));
+                }
                 self.engine.note_passthrough(c);
                 return with_prefix(Some(committed), Effect::Passthrough, c);
             }

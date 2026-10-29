@@ -73,7 +73,13 @@ impl Engine {
 
     /// 壳告知正在输入的应用（macOS bundle identifier / Windows exe 名），写进输入日志；不知道就给 `None`。
     pub fn set_application(&mut self, app: Option<String>) {
+        self.history.set_application(app.as_deref());
         self.application = app;
+    }
+
+    /// 焦点进了一个输入框（壳在 IMK `activateServer`、Fcitx focus in 时调）：之前在这个应用里打的字不再当前文。
+    pub fn enter_input_box(&mut self) {
+        self.history.forget_current();
     }
 
     pub fn application(&self) -> Option<&str> {
@@ -173,6 +179,7 @@ impl Engine {
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
             self.composition_started = Some(Instant::now());
+            *self.generated_forms.borrow_mut() = None;
             self.page_turns = 0;
             self.retype_snapshot = None;
             self.typing.restart();
@@ -299,6 +306,16 @@ impl Engine {
                 .is_expression(self.composition.text(), self.zhuyin)
     }
 
+    /// 表达式模式下这个字符进算式（数字与运算符），壳据此决定交给 [`Self::push`] 还是当选词键。
+    /// `vuuid`、`vts` 不是算式：数字留给选词。
+    pub fn expression_input(&self, c: char) -> bool {
+        self.expression_mode()
+            && shortcut::is_expression_char(c)
+            && !shortcut::is_generated_keyword(
+                &self.composition.text()[self.modes().expression.len_utf8()..],
+            )
+    }
+
     /// 英文直输段：缓冲区里有拼音以外的字符（`no-way`），整段原样上屏、不解析拼音。
     /// 表达式模式与问字模式优先于它。
     pub fn raw_mode(&self) -> bool {
@@ -319,11 +336,15 @@ impl Engine {
     }
 
     /// 问字模式下正在敲的还可能是 Unicode 码点（前缀后为空，或到目前为止全是十六进制 / 开头 `+`）：
-    /// 此时壳应把数字交给 [`Self::push`] 而不是当选词键。
+    /// 此时壳应把数字交给 [`Self::push`] 而不是当选词键。全是字母又拆得出字（`udada`）时数字留给选字。
     pub fn unicode_entry(&self) -> bool {
         let text = self.composition.text();
-        self.modes().is_question(text, self.zhuyin)
-            && shortcut::could_be_unicode(self.modes().question_body(text, self.zhuyin))
+        if !self.modes().is_question(text, self.zhuyin) {
+            return false;
+        }
+        let body = self.modes().question_body(text, self.zhuyin);
+        shortcut::could_be_unicode(body)
+            && !(body.bytes().all(|b| b.is_ascii_alphabetic()) && crate::chaizi::has_match(body))
     }
 
     /// 缓冲区里只有一个 `?`：还没决定是问字还是标点。壳在确认标点时调用 [`Self::restore_bare_question`]。

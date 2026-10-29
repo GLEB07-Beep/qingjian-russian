@@ -1,10 +1,12 @@
-//! 呈现：删候选、按应用关英文候选、翻译选区的起止、提示气泡、会话重置与候选窗口绘制。
+//! 呈现：候选右键菜单、按应用关英文候选、翻译选区的起止、提示气泡、会话重置与候选窗口绘制。
 
+mod candidate_translation;
 mod key_hint;
 mod notice;
 mod panel;
 mod translation_job;
 
+pub use candidate_translation::CandidateTranslation;
 pub(super) use key_hint::KeyHintState;
 pub(super) use notice::Notice;
 pub use translation_job::TranslationJob;
@@ -12,21 +14,68 @@ pub use translation_job::TranslationJob;
 use super::cloud::cloud_candidate;
 use super::*;
 use qingjian_core::TraditionalVariant;
+use qingjian_core::candidate::arrows::Focus;
+use qingjian_platform::candidate_menu::{self, CandidateAction};
 
 impl Host {
-    /// 删掉当前页第 `offset` 格的候选：用户词整个删、词库词清学习。返回给用户看的一句话；那格没有候选返回 `None`。
-    pub fn forget_candidate(&mut self, offset: usize) -> Option<String> {
-        let index = self.session.index_on_page(offset)?;
+    /// 右键菜单：视图里第 `offset` 格的候选能做哪几件事；那格没有候选给空。
+    pub fn candidate_actions(&self, offset: usize) -> Vec<CandidateAction> {
+        let Some(candidate) = self
+            .session
+            .index_in_view(offset)
+            .and_then(|index| self.session.candidate(index))
+        else {
+            return Vec::new();
+        };
+        candidate_menu::actions(
+            &self.engine,
+            &candidate,
+            &self.settings.config().custom_phrases,
+        )
+    }
+
+    /// 做右键菜单里的一项，返回给用户看的一句话；那格没有候选返回 `None`。
+    /// 置顶 / 取消置顶改了配置里的短语，重读配置推给 Engine。
+    pub fn perform_candidate_action(
+        &mut self,
+        offset: usize,
+        action: CandidateAction,
+    ) -> Option<String> {
+        let index = self.session.index_in_view(offset)?;
         let candidate = self.session.candidate(index)?;
-        let forgotten = self.engine.forget(&candidate);
-        let text = &candidate.text;
-        Some(if forgotten.user_word {
-            format!("已删除用户词「{text}」")
-        } else if forgotten.learning {
-            format!("已忘掉对「{text}」的学习记录")
+        let phrases = self.settings.config().custom_phrases.clone();
+        let path = self.settings.path().map(|path| path.to_path_buf());
+        let outcome = candidate_menu::perform(
+            action,
+            &mut self.engine,
+            &candidate,
+            path.as_deref(),
+            &phrases,
+        );
+        if outcome.phrases_changed {
+            self.settings.reload();
+            self.apply_config(false);
+        }
+        Some(outcome.notice)
+    }
+
+    /// 把用户手工输入的译文保存到个人释义表。
+    pub fn set_candidate_translation(&mut self, word: &str, display: &str, text: &str) -> String {
+        if self.engine.set_translation(word, text) {
+            tracing::info!(word, language = %self.engine.learning_language().code(), "候选译文已保存");
+            format!("已更新「{display}」的译文")
         } else {
-            format!("「{text}」是词库里的词，也没有学习记录，没什么可删")
-        })
+            "译文不能为空，或当前未启用学习语言".to_owned()
+        }
+    }
+
+    pub fn begin_candidate_translation(&mut self, sequence: u64, candidate: Candidate) {
+        self.candidate_translation = Some(CandidateTranslation {
+            sequence,
+            candidate,
+        });
+        self.status = Some("模型正在重新生成译文…".to_owned());
+        self.await_prediction(None);
     }
 
     /// 这个应用里英文模式给不给候选：全局开关开着，且应用在 `[apps] english_candidates_on` 白名单里。
@@ -79,6 +128,11 @@ impl Host {
     /// `←` / `→` 归候选：横排矩阵开着，或高亮移动键选了 `←` / `→`。
     pub fn arrows_move_cells(&self) -> bool {
         self.grid_keys() || self.highlight_keys == HighlightKeys::LeftRight
+    }
+
+    /// 方向键分拼音行与候选两区（Core 的 `arrows::route`）：横排，而且高亮移动键选了 `←` / `→`。
+    pub fn two_area_arrows(&self) -> bool {
+        self.layout == LayoutMode::Horizontal && self.highlight_keys == HighlightKeys::LeftRight
     }
 
     /// 新一轮候选：每页格数取配置与窗口能画的行数中较小者，云端槽位数取配置。
@@ -175,10 +229,16 @@ impl Host {
         }
         let pages = self.session.pages();
         let footer = (pages > 1).then(|| format!("{}/{pages}", page + 1));
+        // 方向键在拼音行里时候选不画高亮，空格照样上屏原来高亮的那个
+        let in_pinyin = self.two_area_arrows() && self.session.focus == Focus::Pinyin;
         let frame = Frame {
             preedit,
             rows,
-            highlighted: self.session.highlighted.saturating_sub(first),
+            highlighted: if in_pinyin {
+                usize::MAX
+            } else {
+                self.session.highlighted.saturating_sub(first)
+            },
             columns,
             column_ems: if columns > 0 {
                 qingjian_core::Grid::column_ems(&self.session.layout)
@@ -186,6 +246,7 @@ impl Host {
                 Vec::new()
             },
             footer,
+            pages_around: (page > 0, page + 1 < pages),
             sentence: self.sentence.clone(),
             status: self.status.clone(),
             mode: self.input_mode(),
@@ -195,10 +256,10 @@ impl Host {
         self.window.show(frame, self.anchor);
     }
 
-    /// 给候选窗口主题显示的输入状态：中英看 Caps Lock（与菜单栏一致），其余看配置；英文模式标点是半角。
+    /// 给候选窗口主题显示的输入状态：中英跟菜单栏一致（Caps Lock 或单击 Shift），其余看配置；英文模式标点是半角。
     pub(super) fn input_mode(&self) -> qingjian_render::Mode {
         let general = &self.settings.config().general;
-        let english = crate::imk::modifiers::caps_lock_on();
+        let english = self.english_mode();
         qingjian_render::Mode {
             english,
             traditional: general.traditional() != TraditionalVariant::Off,

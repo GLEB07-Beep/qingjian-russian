@@ -15,7 +15,7 @@ use bamboo_slip::FontSpec;
 use bamboo_slip::taffy::{Dimension, FlexDirection, LengthPercentage, NodeId, Rect, Size, Style};
 use bamboo_slip::{
     Interact, Interaction, KeyCode, RenderError, ScrollArea, TITLEBAR, Ui, Visual, WidgetColors,
-    WidgetTheme,
+    WidgetTheme, paragraph,
 };
 
 use crate::message::Message;
@@ -107,7 +107,7 @@ pub fn index(settings: &Settings) -> Vec<Entry> {
         content_width: 600.0,
     };
     let mut entries = Vec::new();
-    for id in PageId::ALL {
+    for id in PageId::ALL.into_iter().filter(|id| id.shown()) {
         entries.push(Entry {
             page: id,
             key: None,
@@ -147,12 +147,21 @@ fn page_children(
         PageId::Stats => pages::stats::stats(ui, page)?,
         PageId::Vocabulary => pages::vocabulary::vocabulary(ui, page)?,
         PageId::Advanced => pages::advanced::advanced(ui, page)?,
+        PageId::Experimental => pages::experimental::experimental(ui, page)?,
         PageId::About => pages::about::about(ui, page)?,
     })
 }
 
 fn content(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
-    let children = page_children(ui, page, page.settings.page)?;
+    let mut children = Vec::new();
+    // 配置文件读不了时每页顶上都说一声：界面这时是缺省值，不是文件里写的
+    if let Some(error) = &page.settings.config_error {
+        let text = format!(
+            "配置文件有错误，下面先按缺省值显示；在这里改一项只写那一项，文件里别的内容不动，文件修好之前改动可能存不进去。\n{error}"
+        );
+        children.push(paragraph(ui, &page.theme, &text, None)?);
+    }
+    children.extend(page_children(ui, page, page.settings.page)?);
     let column = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Column,

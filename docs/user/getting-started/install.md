@@ -5,7 +5,9 @@ description: macOS 与 Windows 的安装步骤：系统要求、安装包、首�
 ---
 
 macOS 与 Windows 版是测试版，从[下载页](https://qingjian.app/download)取得安装包。
-Linux 版需在终端中安装，见 [Linux](../platforms/linux.md)；Android 版尚未提供安装包，见 [Android](../platforms/android.md)。
+Linux 版需在终端中安装，见 [Linux](../platforms/linux.md)；Android 版下载 APK 安装，见 [Android](../platforms/android.md)。
+
+官方发布渠道目前只有官网下载页、[GitHub Releases](https://github.com/qingjian-team/qingjian/releases)，以及每版更新日志里给出的夸克网盘链接，其他地方的「青简」都不是官方发布的；青简目前没有上架任何包管理器。
 
 ## macOS
 
@@ -21,6 +23,16 @@ Linux 版需在终端中安装，见 [Linux](../platforms/linux.md)；Android �
 
 - 菜单栏右上出现「中 / 英」状态项，点击可打开输入法菜单与设置。
 - 首次使用先到「设置 → 候选」的「译文」选择学习语言，候选旁的译词即为该语言，见 [候选旁的译词](../learning/translation.md)。
+
+### 直接替换 app 后行为不对：重新添加一次
+
+不用安装包、直接替换青简的 app 之后，系统可能还在用旧的登记：青简能选中，行为却跟新版对不上。这时：
+
+1. 「系统设置 → 键盘 → 输入法 → 编辑」里移除青简；
+2. 注销并重新登录；
+3. 重新添加青简。
+
+用安装包安装不用这样做，每次安装都会重新登记。
 
 ## Windows
 

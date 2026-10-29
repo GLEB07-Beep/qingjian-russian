@@ -242,6 +242,8 @@ impl Router {
         self.engine.set_show_tones(config.general.show_tones);
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine
+            .set_spelling_correction(config.general.spelling_correction);
+        self.engine
             .set_emoji_limit(usize::from(config.general.emoji.get()));
         self.engine
             .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
@@ -250,12 +252,20 @@ impl Router {
         self.engine
             .set_english_in_chinese(config.general.english_in_chinese);
         self.engine
+            .set_english_max_in_chinese(config.general.english_max_in_chinese());
+        self.engine
+            .set_english_min_position(config.general.english_min_position());
+        self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine.set_auto_space(config.general.auto_space);
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
         self.engine
+            .set_shuangpin_raw_window(config.general.shuangpin_raw_window);
+        self.engine
             .set_hold_selections(config.general.hold_selections);
+        self.engine
+            .set_context_memory(config.model.context_memory_seconds);
         let previous = self.config.render_settings();
         let grid_keys = self.config.grid_keys();
         let next = RouterConfig::from(config);
@@ -322,3 +332,6 @@ impl Router {
         self.engine.set_aux_codes(tables);
     }
 }
+
+#[cfg(test)]
+mod traditional_tests;

@@ -15,6 +15,8 @@ mod replay;
 mod rescoring;
 mod tuning;
 mod userwords;
+mod wordlist;
+mod zhiyi;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -34,6 +36,9 @@ use qingjian_translate::{Glossary, LevelTable};
 use crate::args::Args;
 use crate::error::CliError;
 
+/// 知意用几个线程，与 Windows Server 一致。
+const ZHIYI_THREADS: usize = 2;
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("error: {error}");
@@ -51,6 +56,7 @@ fn run() -> Result<(), CliError> {
     tracing::info!(total_ms = started.elapsed().as_millis(), "Engine 就绪");
     engine.set_english_mode(args.english_mode);
     engine.set_chinese_first(args.chinese_first);
+    engine.set_spelling_correction(!args.no_spelling_correction);
     engine.set_show_tones(args.show_tones);
     engine.set_emoji_limit(usize::from(args.emoji_limit));
     tuning::apply(&mut engine, &args.tune)?;
@@ -87,13 +93,38 @@ fn run() -> Result<(), CliError> {
         userwords::run(&args, &mut engine)?;
         return Ok(());
     }
+    if let Some(path) = &args.import_words {
+        wordlist::run(&args, path)?;
+        return Ok(());
+    }
     if let Some(path) = &args.replay {
         // 日志里形码那些行也要能重放：回放按每条的方案切引擎，所以它自己得留一份码表
         // （`build_engine` 那份的所有权已经交给引擎了）
         let code = args.code.as_deref().map(load_code_scheme).transpose()?;
         let shuangpin = load_shuangpin_scheme(&args)?;
-        let report = replay::run(&mut engine, path, args.misses, code, shuangpin)?;
+        let mut reranker = args
+            .zhiyi
+            .as_deref()
+            .map(|dir| {
+                zhiyi::Reranker::load(
+                    dir,
+                    args.zhiyi_top,
+                    (args.zhiyi_lm_weight, args.zhiyi_rank_weight),
+                )
+            })
+            .transpose()?;
+        let report = replay::run(
+            &mut engine,
+            path,
+            args.misses,
+            code,
+            shuangpin,
+            reranker.as_mut(),
+        )?;
         print!("{report}");
+        if let Some(reranker) = &reranker {
+            println!("{}", reranker.summary());
+        }
         return Ok(());
     }
     if let Some(model) = &args.eval_generate {
@@ -107,14 +138,29 @@ fn run() -> Result<(), CliError> {
         return Ok(());
     }
     if !args.eval_text.is_empty() {
+        let mut reranker = args
+            .zhiyi
+            .as_deref()
+            .map(|dir| {
+                zhiyi::Reranker::load(
+                    dir,
+                    args.zhiyi_top,
+                    (args.zhiyi_lm_weight, args.zhiyi_rank_weight),
+                )
+            })
+            .transpose()?;
         let report = eval::run(
             &mut engine,
             &args.eval_text,
             args.eval_save.as_deref(),
             args.misses,
             args.eval_details.as_deref(),
+            reranker.as_mut(),
         )?;
         print!("{report}");
+        if let Some(reranker) = &reranker {
+            println!("{}", reranker.summary());
+        }
         return Ok(());
     }
     if args.inputs.is_empty() {
@@ -248,6 +294,9 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     if let Some(words) = english {
         engine = engine.with_english(words);
     }
+    engine.set_english_max_in_chinese(args.english_max_in_chinese);
+    engine.set_english_min_position(args.english_min_position);
+    engine.set_english_in_chinese(!args.no_english_in_chinese);
     // emoji 表随仓库提供（Unicode License）：中文表 + 英文表合成一张，一张都没有就不出 emoji 候选
     let mut emoji: Option<EmojiTable> = None;
     let started = Instant::now();
@@ -274,6 +323,7 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     let packed = std::path::PathBuf::from("data/generated/lm.qj");
     let unigram = std::path::PathBuf::from("data/generated/lm-unigram.tsv");
     let bigram = std::path::PathBuf::from("data/generated/lm-bigram.tsv");
+    let mut bigram_model = None;
     if packed.is_file() || (unigram.is_file() && bigram.is_file()) {
         let started = Instant::now();
         let model = if packed.is_file() {
@@ -287,7 +337,7 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
             load_ms = started.elapsed().as_millis(),
             "语言模型已加载"
         );
-        engine = engine.with_language_model(Box::new(model));
+        bigram_model = Some(model);
     }
     if let Some(dir) = &args.neural {
         let started = Instant::now();
@@ -320,6 +370,56 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
                 args.neural_context,
             )
         };
+    }
+    if let (Some(dir), Some(runtime)) = (&args.zhiyi_onnx, &args.onnx_runtime) {
+        let started = Instant::now();
+        let scorer = qingjian_neural::zhiyi::ChoiceScorer::load_onnx(dir, runtime, ZHIYI_THREADS)?;
+        engine.set_choice_model(Some(Arc::new(scorer)));
+        engine.set_choice_tier(args.zhiyi_tier.choice_tier());
+        tracing::info!(
+            load_ms = started.elapsed().as_millis(),
+            tier = args.zhiyi_tier.key(),
+            "知意选词重排已启用"
+        );
+    }
+    if let Some(path) = &args.ngram {
+        let started = Instant::now();
+        let model = qingjian_lm::TrigramModel::open(path)?;
+        tracing::info!(
+            unigrams = model.unigram_count(),
+            bigrams = model.bigram_count(),
+            trigrams = model.trigram_count(),
+            mb = model.bytes() >> 20,
+            load_ms = started.elapsed().as_millis(),
+            "三元模型已加载"
+        );
+        if !args.no_ngram_words {
+            let started = Instant::now();
+            let mut references = vec![engine.dictionary()];
+            references.extend(engine.extra_dictionaries());
+            let mut words = qingjian_dictionary::supplement(model.vocabulary(), &references)?;
+            tracing::info!(
+                entries = words.len(),
+                build_ms = started.elapsed().as_millis(),
+                "三元模型词表补词已生成"
+            );
+            words.set_secondary(true);
+            engine.set_model_words(Some(words));
+        }
+        engine.set_phrase_model(Some(Arc::new(model)));
+        // 整句词图另映射一份（同一文件，页面共用）：与二元模型插值
+        let trigram = Box::new(qingjian_lm::TrigramModel::open(path)?);
+        engine = engine.with_language_model(match bigram_model.take() {
+            Some(bigram) => Box::new(qingjian_lm::MixedModel::new(
+                trigram,
+                Box::new(bigram),
+                qingjian_lm::TRIGRAM_WEIGHT,
+            )),
+            None => trigram,
+        });
+    }
+    if let Some(model) = bigram_model {
+        engine = engine.with_language_model(Box::new(model));
     }
     if let Some(path) = &args.eval_p2c {
         let scorer = qingjian_neural::CharScorer::load(path)?;
