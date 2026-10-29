@@ -54,13 +54,11 @@ jobs:
           python3 tests/test_glossary_ru.py
           python3 tests/test_levels_ru.py
 
-      - name: Pre-build Product Lexicon & Russian Glossary
+      # 上游 0.3.2 起 bundle.sh 先查产品数据、缺一样就早停（dict/lm/english/dicts/codes/各语言 glossary），
+      # 因此这里必须按上游的 data-fetch.sh 取整包数据，不能只现编 dict.qj。
+      - name: Fetch Product Data & Build Russian Glossary
         run: |
-          mkdir -p data/generated
-          cargo run --release -q -p qingjian-dict-convert -- pack dict --input assets/lexicon/dict.tsv \
-            --name "青简基础词库" --license "MIT AND Unicode-3.0" \
-            --attribution "通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）" \
-            --source https://github.com/qingjian-team/qingjian/tree/main/assets/lexicon
+          tools/release/data-fetch.sh
           cargo run --release -q -p qingjian-dict-convert -- pack glossary --language ru --input assets/glossary/glossary-ru.tsv \
             --name "青简释义表（ru）" --license "MIT" --attribution "青简俄语专版（Qingjian-RU，GLEB07-Beep）"
 
