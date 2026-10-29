@@ -2,6 +2,8 @@
 
 use super::*;
 
+use crate::candidate::CandidateList;
+
 #[test]
 fn erasing_the_last_commit_and_choosing_another_word_retracts_its_learning() {
     let mut engine = engine().with_learner(Box::new(CountingLearner(HashMap::new())));

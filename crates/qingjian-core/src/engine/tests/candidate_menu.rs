@@ -97,12 +97,14 @@ fn editing_the_first_translation_keeps_the_second_sense_and_metadata() {
                 text: "first".to_owned(),
                 reading: Some("reading".to_owned()),
                 fresh: true,
+                level: None,
             },
             Sense {
                 part_of_speech: Some(PartOfSpeech::Noun),
                 text: "second".to_owned(),
                 reading: None,
                 fresh: false,
+                level: None,
             },
         ],
     );

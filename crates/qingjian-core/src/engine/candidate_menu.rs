@@ -60,6 +60,7 @@ impl Engine {
                 text: text.to_owned(),
                 reading: None,
                 fresh: false,
+                level: None,
             }),
         }
         self.translator
