@@ -48,7 +48,9 @@ impl LevelTable {
         if source.contains('\r') {
             return Err(GlossaryError::Line {
                 line: 1,
-                reason: "carriage return (\\r) is strictly forbidden; only LF line endings are allowed".to_owned(),
+                reason:
+                    "carriage return (\\r) is strictly forbidden; only LF line endings are allowed"
+                        .to_owned(),
             });
         }
         let mut table = Self::default();
@@ -57,7 +59,8 @@ impl LevelTable {
                 let Some(rest) = line.strip_prefix("# levels\t") else {
                     return Err(GlossaryError::Line {
                         line: index + 1,
-                        reason: "corrupted levels header: expected `# levels\\t<L1>\\t<L2>...`".to_owned(),
+                        reason: "corrupted levels header: expected `# levels\\t<L1>\\t<L2>...`"
+                            .to_owned(),
                     });
                 };
                 let levels: Vec<String> = rest
@@ -176,7 +179,11 @@ mod tests {
         let table = LevelTable::from_path("assets/levels/levels-ru.tsv")
             .expect("failed to load levels-ru.tsv");
         assert_eq!(table.levels(), ["A1", "A2", "B1", "B2", "C1", "C2"]);
-        assert!(table.len() >= 1000, "expected at least 1000 words, got {}", table.len());
+        assert!(
+            table.len() >= 1000,
+            "expected at least 1000 words, got {}",
+            table.len()
+        );
         // 验证小写查词与大小写归一化
         assert_eq!(table.level("привет"), Some("A1"));
         assert_eq!(table.level("Привет"), Some("A1"));
@@ -219,4 +226,3 @@ mod tests {
         ));
     }
 }
-

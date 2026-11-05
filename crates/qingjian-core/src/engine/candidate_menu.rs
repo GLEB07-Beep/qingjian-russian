@@ -5,8 +5,44 @@ use crate::candidate::{Candidate, CandidateKind};
 use crate::{Language, Sense, Translation};
 
 impl Engine {
+    /// 给不走中文 Composition 的候选排序（如越南语）：选择权重优先，再应用该输入串下的降权。
+    /// 调用方应给 `input` 加模式前缀，避免与拼音学习记录混用。
+    pub fn rank_external_candidates(&self, input: &str, candidates: &mut [Candidate]) {
+        candidates.sort_by_key(|candidate| {
+            std::cmp::Reverse(self.learner.choice_weight(input, &candidate.text))
+        });
+        candidates.sort_by_key(|candidate| self.learner.demotion(input, &candidate.text));
+    }
+
+    /// 提高外部候选在指定输入串下的权重。
+    pub fn promote_external_candidate(&mut self, input: &str, text: &str) {
+        self.learner.record_choice(input, "", text);
+        self.learner.flush();
+    }
+
+    pub fn demote_external_candidate(&mut self, input: &str, text: &str) {
+        self.learner.demote(input, text);
+        self.learner.flush();
+    }
+
+    pub fn undemote_external_candidate(&mut self, input: &str, text: &str) -> bool {
+        let changed = self.learner.undemote(input, text);
+        self.learner.flush();
+        changed
+    }
+
+    pub fn external_candidate_demotion(&self, input: &str, text: &str) -> u32 {
+        self.learner.demotion(input, text)
+    }
+
     /// 这个候选存进学习数据与自定义短语时用的写法：繁体输出开着时换回简体。
     pub(super) fn stored_text(&self, candidate: &Candidate) -> String {
+        // 短语候选显示的是换过时间变量的文字，存的是带 `{year}` 这类变量的原文：按位置找回原文，取消置顶才认得
+        if let CandidateKind::Custom(position) = candidate.kind
+            && let Some(phrase) = self.scope_phrases().get(position.wrapping_sub(1))
+        {
+            return phrase.text.clone();
+        }
         self.traditional
             .restore(&candidate.text)
             .unwrap_or_else(|| candidate.text.clone())
@@ -33,6 +69,53 @@ impl Engine {
             return false;
         };
         self.set_translation(&word, text)
+    }
+
+    /// 保存模型生成的候选译文；模型给了可识别词性就一并保存，没给时仍保留译词。
+    pub fn set_generated_candidate_translation(
+        &mut self,
+        candidate: &Candidate,
+        generated: &str,
+    ) -> bool {
+        let Some((word, language)) = self.translation_target(candidate) else {
+            return false;
+        };
+        let generated = generated.trim();
+        let (part_of_speech, text) = match generated.split_once('\t') {
+            Some((part_of_speech, text)) => match part_of_speech.trim().parse() {
+                Ok(part_of_speech) => (Some(part_of_speech), text.trim()),
+                Err(_) => (None, text.trim()),
+            },
+            None => (None, generated),
+        };
+        if text.is_empty() {
+            return false;
+        }
+        let mut senses = self
+            .translator
+            .translate(&word)
+            .map(|translation| translation.senses().to_vec())
+            .unwrap_or_default();
+        match senses.first_mut() {
+            Some(sense) => {
+                sense.text = text.to_owned();
+                if part_of_speech.is_some() {
+                    sense.part_of_speech = part_of_speech;
+                }
+                sense.fresh = false;
+            }
+            None => senses.push(Sense {
+                part_of_speech,
+                text: text.to_owned(),
+                reading: None,
+                fresh: false,
+                level: None,
+            }),
+        }
+        self.translator
+            .learn(&word, Translation::new(language, senses));
+        self.translator.flush();
+        true
     }
 
     /// 按已经还原成存储字形的词覆盖个人译文。弹出编辑框前先保存 `word`，即使 IMK 在弹窗期间重建会话也能写入。

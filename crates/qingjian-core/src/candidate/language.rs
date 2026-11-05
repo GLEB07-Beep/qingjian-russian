@@ -2,6 +2,8 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::tr;
+
 /// 主语言或学习语言。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Language {
@@ -45,18 +47,20 @@ impl Language {
 /// 学习语言写这个值表示不显示译文（配置 `[general] learning_language`）。
 pub const LEARNING_LANGUAGE_OFF: &str = "off";
 
-/// 设置里列的学习语言：配置写法与界面名，按这个顺序列出；最后一项是不显示译文。
+/// 设置里列的学习语言：配置写法与界面名（随界面语言），按这个顺序列出；最后一项是不显示译文。
 ///
 /// 青简·俄语专版：俄语置于首位，是俄语专版的默认学习语言。
-pub const LEARNING_LANGUAGES: [(&str, &str); 7] = [
-    ("ru", "俄语"),
-    ("en", "英语"),
-    ("ja", "日语"),
-    ("es", "西班牙语"),
-    ("vi", "越南语"),
-    ("de", "德语"),
-    (LEARNING_LANGUAGE_OFF, "不显示"),
-];
+pub fn learning_languages() -> [(&'static str, &'static str); 7] {
+    [
+        ("ru", tr("languages.ru")),
+        ("en", tr("languages.en")),
+        ("ja", tr("languages.ja")),
+        ("es", tr("languages.es")),
+        ("vi", tr("languages.vi")),
+        ("de", tr("languages.de")),
+        (LEARNING_LANGUAGE_OFF, tr("languages.off")),
+    ]
+}
 
 #[derive(Debug, thiserror::Error)]
 #[error("unknown language code: {0}")]
@@ -126,10 +130,7 @@ mod tests {
 
     #[test]
     fn tooth_check_pre_v010_fails_on_russian() {
-        assert_eq!(
-            "ru".parse::<pre_language::Language>().unwrap_err().0,
-            "ru"
-        );
+        assert_eq!("ru".parse::<pre_language::Language>().unwrap_err().0, "ru");
         assert_eq!(
             "русский".parse::<pre_language::Language>().unwrap_err().0,
             "русский"
@@ -138,7 +139,8 @@ mod tests {
 
     #[test]
     fn learning_languages_parse_except_off() {
-        let (off, rest) = LEARNING_LANGUAGES.split_last().unwrap();
+        let languages = learning_languages();
+        let (off, rest) = languages.split_last().unwrap();
         assert_eq!(off.0, LEARNING_LANGUAGE_OFF);
         for (code, _) in rest {
             assert_eq!(code.parse::<Language>().unwrap().code(), *code);

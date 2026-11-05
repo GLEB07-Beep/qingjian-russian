@@ -1,8 +1,9 @@
 use qingjian_core::TraditionalVariant;
 use qingjian_platform::protocol::KeyModifiers;
 use qingjian_platform::{
-    Appearance, AppsConfig, CandidateRenderer, Config, FontSize, HighlightKeys, KeyCombo,
-    KeyHintMode, LayoutMode, NumpadDigit, PageKeys, PreeditMode, Scheme, SwitchKeys,
+    Appearance, AppsConfig, CandidateRenderer, CommitKeys, Config, FontSize, HighlightKeys,
+    KeyCombo, KeyHintMode, LayoutMode, NumpadDigit, PageKeys, PreeditMode, Scheme, SwitchKeys,
+    ThirdInputMethod,
 };
 
 use super::RenderSettings;
@@ -19,9 +20,6 @@ pub struct RouterConfig {
     /// 是否请求云端候选词和整句补全（`[predict] enabled`）。
     pub cloud_enabled: bool,
 
-    /// 本地整句候选是否异步请求译文（`[predict] sentence_translation`）。
-    pub sentence_translation: bool,
-
     /// 中文模式下 Shift+字母收进组句缓冲区（`[general] shift_letter = "compose"`）。
     /// 关着（缺省）时壳把大写字母交给应用，与以前一致。
     pub shift_letter_compose: bool,
@@ -34,6 +32,9 @@ pub struct RouterConfig {
 
     /// 横排时上 / 下键把单行展开成多行矩阵（`[general] horizontal_grid`）。
     pub horizontal_grid: bool,
+
+    /// 横排时翻页键也把单行展开成矩阵（`[general] grid_page_keys`）。
+    pub grid_page_keys: bool,
 
     /// 候选窗口外观（`[general] appearance`，兼容旧写法见 [`qingjian_platform::GeneralConfig::appearance`]）。
     pub appearance: Appearance,
@@ -81,6 +82,9 @@ pub struct RouterConfig {
     /// 中英切换键（`[shortcut] switch_mode`）：由 Server 经协议下发给 DLL，由它认键。
     pub switch_mode: SwitchKeys,
 
+    /// 双击 Shift 切换到的第三输入法。
+    pub double_shift_input: ThirdInputMethod,
+
     /// 候选高亮由哪对方向键移动（`[shortcut] highlight_keys`）。
     pub highlight_keys: HighlightKeys,
 
@@ -109,8 +113,14 @@ pub struct RouterConfig {
     /// 「翻译选中文字」快捷键（`[shortcut] translate_selection`）。
     pub translate_selection: KeyCombo,
 
+    /// 没在组句时打开符号面板翻译组的快捷键（`[shortcut] translate_panel`）。
+    pub translate_panel: KeyCombo,
+
     /// 组句中按需调用 AI 的快捷键（`[shortcut] predict`）。
     pub predict: KeyCombo,
+
+    /// 组句时上屏高亮候选与原样上屏字母的键（`[shortcut] commit_candidate` / `commit_raw`）。
+    pub commit_keys: CommitKeys,
 
     /// 简繁切换快捷键；与选区翻译相同时不登记，保留翻译行为。
     pub toggle_traditional: Option<KeyCombo>,
@@ -160,6 +170,11 @@ impl RouterConfig {
         self.horizontal_grid && self.layout == LayoutMode::Horizontal
     }
 
+    /// 翻页键展开矩阵是否生效：开关开着（`[general] grid_page_keys`）而且排布是横排。
+    pub fn page_keys_expand(&self) -> bool {
+        self.grid_page_keys && self.layout == LayoutMode::Horizontal
+    }
+
     /// 方向键分拼音行与候选两区（Core 的 `arrows::route`）：横排，而且高亮移动键选了 `←` / `→`。
     pub fn two_area_arrows(&self) -> bool {
         self.layout == LayoutMode::Horizontal && self.highlight_keys == HighlightKeys::LeftRight
@@ -184,11 +199,11 @@ impl From<&Config> for RouterConfig {
             page_size: config.general.page_size(),
             cloud_slots: config.predict.slots,
             cloud_enabled: config.predict.enabled,
-            sentence_translation: config.predict.sentence_translation,
             shift_letter_compose: config.general.shift_letter.compose(),
             numpad_digit: config.general.numpad_digit,
             layout: config.general.layout,
             horizontal_grid: config.general.horizontal_grid,
+            grid_page_keys: config.general.grid_page_keys,
             appearance: config.general.appearance(),
             renderer: config.general.renderer,
             font: config.general.font.trim().to_owned(),
@@ -207,6 +222,7 @@ impl From<&Config> for RouterConfig {
             default_english: config.general.default_english,
             remember_mode_per_app: config.general.remember_mode_per_app,
             switch_mode: config.shortcut.switch_mode,
+            double_shift_input: config.general.double_shift_input,
             highlight_keys: config.shortcut.highlight_keys,
             toggle_punctuation: config.shortcut.toggle_punctuation,
             full_width: config.general.full_width_punctuation,
@@ -219,7 +235,9 @@ impl From<&Config> for RouterConfig {
                 (first.into(), second.into())
             },
             translate_selection: config.shortcut.translate_selection,
+            translate_panel: config.shortcut.translate_panel,
             predict: config.shortcut.predict,
+            commit_keys: config.shortcut.commit_keys(),
             toggle_traditional: config
                 .shortcut
                 .toggle_traditional

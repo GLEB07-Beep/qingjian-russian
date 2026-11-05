@@ -40,9 +40,17 @@ class FunctionPanel(
         Feature(null, "繁体", glyph = "繁", on = settings.traditional) {
             setToggle(Settings.KEY_TRADITIONAL, !settings.traditional)
         },
+        // 两套键位排法之间切，见 Settings.Arrangement
+        Feature(null, "左手布局", glyph = "左", on = settings.arrangement == Settings.Arrangement.LEFT_THUMB) {
+            val next = if (settings.arrangement == Settings.Arrangement.LEFT_THUMB) Settings.Arrangement.STANDARD else Settings.Arrangement.LEFT_THUMB
+            setChoice(Settings.KEY_ARRANGEMENT, next.name)
+        },
         Feature(Icon.RESIZE, "键盘高度") { startResize() },
+        Feature(Icon.TUNE, "定制工具栏") { openPanel(PanelKind.TOOLBAR) },
         Feature(Icon.GLOBE, "切换输入法") { switchInputMethod() },
         Feature(Icon.SETTINGS, "设置") { openSettings() },
+    ) + listOfNotNull(
+        actions.gameKeyboard?.let { on -> Feature(null, "游戏键盘", glyph = "游", on = on) { toggleGameKeyboard() } },
     )
 
     private val toggles

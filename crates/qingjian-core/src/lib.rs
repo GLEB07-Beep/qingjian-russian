@@ -4,10 +4,11 @@
 //! 平台层（IMK / TSF / IBus-Fcitx）只负责把按键喂给 [`Engine`]、把候选画出来。
 //! 判断标准：换掉 IMK 换成 TSF，不应该需要改这里的任何一行。
 
+pub use qingjian_code as code;
+
 pub mod calculation;
 pub mod candidate;
 pub mod chaizi;
-pub mod code;
 pub mod code_scheme;
 pub mod composition;
 pub mod correction;
@@ -18,6 +19,7 @@ pub mod engine;
 pub mod english;
 pub mod fuzzy;
 pub mod history;
+mod i18n;
 pub mod japanese;
 pub mod nine_key;
 pub mod panel;
@@ -32,6 +34,7 @@ pub mod spacing;
 pub mod storage;
 pub mod swipe;
 pub mod traditional;
+pub mod vietnamese;
 pub mod voice;
 pub mod zhuyin;
 
@@ -39,9 +42,9 @@ pub use custom_phrase::CustomPhrase;
 
 pub use calculation::{CalculationCompletion, calculation_completions, may_end_calculation};
 pub use candidate::{
-    format_level_badge, Candidate, CandidateKind, CandidateLayout, CandidateList, Cell, GRID_ROWS,
-    Grid, LEARNING_LANGUAGE_OFF, LEARNING_LANGUAGES, Language, MAX_CELL_EMS, PartOfSpeech, Sense,
-    Translation,
+    Candidate, CandidateKind, CandidateLayout, CandidateList, Cell, GRID_ROWS, Grid,
+    LEARNING_LANGUAGE_OFF, Language, MAX_CELL_EMS, PartOfSpeech, Sense, Translation,
+    format_level_badge, learning_languages,
 };
 pub use code_scheme::CodeScheme;
 pub use composition::Composition;
@@ -72,4 +75,7 @@ pub use qingjian_dictionary as dictionary;
 pub use shuangpin::{Layout as ShuangpinLayout, Scheme as ShuangpinScheme};
 pub use swipe::{CornerDecoder, ShapeDecoder, SwipeDecoder, SwipeKey, SwipeLexicon, SwipePoint};
 pub use traditional::{Traditional, TraditionalVariant};
+pub use vietnamese::{
+    TelexComposer, complete as complete_vietnamese, suggest as suggest_vietnamese,
+};
 pub use voice::{NoTranscriber, Transcriber, TranscriptEvent};

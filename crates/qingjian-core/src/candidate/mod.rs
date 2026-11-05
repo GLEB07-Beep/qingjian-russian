@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 pub use furigana::{FuriganaSegment, furigana};
 pub use kind::CandidateKind;
-pub use language::{LEARNING_LANGUAGE_OFF, LEARNING_LANGUAGES, Language, UnknownLanguage};
+pub use language::{LEARNING_LANGUAGE_OFF, Language, UnknownLanguage, learning_languages};
 pub use layout::{CandidateLayout, Cell, GRID_ROWS, Grid, MAX_CELL_EMS, arrows};
 pub use list::CandidateList;
 pub use part_of_speech::{PartOfSpeech, UnknownPartOfSpeech};
@@ -86,5 +86,3 @@ mod tests {
         assert_eq!(format_level_badge("unknown"), "考级");
     }
 }
-
-

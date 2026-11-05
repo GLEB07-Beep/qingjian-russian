@@ -26,10 +26,10 @@ On Windows and Linux, the Chinese / English switch can also be a tap of `Ctrl` o
 
 | Action | macOS | Windows | Linux |
 |---|---|---|---|
-| Commit the highlighted candidate | `Space` | `Space` | `Space` |
+| Commit the highlighted candidate (changeable in Settings on Windows and Linux) | `Space` | `Space` | `Space` |
 | Commit candidate N on this page | `1` to `9` | `1` to `9` | `1` to `9` |
 | Commit with the mouse | Click a candidate; click the gloss to its right to commit that gloss | Same | Click a candidate |
-| Commit the letters as typed | `Enter` | `Enter` | `Enter` |
+| Commit the letters as typed (changeable in Settings on Windows and Linux) | `Enter` | `Enter` | `Enter` |
 | Delete the letter before the cursor (when picking in steps, undo the last pick first) | `Backspace` | `Backspace` | `Backspace` |
 | Delete the letter after the cursor | `Delete` | — | `Delete` |
 | Delete the syllable before the cursor | `⌥ + Backspace` | — | — |
@@ -44,6 +44,7 @@ On Windows and Linux, the Chinese / English switch can also be a tap of `Ctrl` o
 | Open the symbol panel | `↑` while the first candidate is highlighted (in horizontal layout with highlight keys set to `←` / `→`, press `↑` once to move into the pinyin, then again) | Same | — |
 | Enter auxiliary code | `;` | `;` | — |
 | Expand to several rows in horizontal layout (enable in Settings) | `↑` / `↓` | `↑` / `↓` | — |
+| Expand to several rows with paging keys in horizontal layout (enable in Settings) | Paging keys | Paging keys | — |
 
 On Windows, numpad digits also pick candidates by default. Set 小键盘数字 (Numpad digits) under 设置 → 候选 (Settings → Candidates) to 直接输入数字 (Type digits) and numpad digits typed while composing are appended to the letters and committed with them (`wenti`, then numpad `5` and `Space`, gives `wenti5`); the main keyboard digits still pick candidates. Num Lock must be on.
 
@@ -55,13 +56,17 @@ A few keys differ with Dachen Zhuyin and Wubi; see [Pinyin schemes and fuzzy pin
 | Action | Keys |
 |---|---|
 | Move | `↑` `↓` `←` `→` |
-| Switch between the Search / Symbols / Emoji groups | `Tab` / `⇧ + Tab` |
+| Switch between the Translate / Search / Symbols / Emoji groups | `Tab` / `⇧ + Tab` |
 | Switch category | `[` `]` |
 | Scroll a screen | `PageUp` / `PageDown` |
 | Commit | `Space`, `Enter`, a number key or double-click |
 | Back to candidates | `Esc`, `Backspace` or the ✕ at the top right |
 
 Typing a letter closes the panel and continues typing. Details in [Punctuation, symbols and emoji](../input/punctuation.md#Symbol-panel).
+
+The Translate group works differently: letters type pinyin as usual, `Space` / number keys put words into the box, `[` `]` switch the target language, `Enter` commits the translation, `Esc` clears the box (with an empty box it goes back to the candidates), and `Backspace` deletes pinyin first, then the character before the cursor.
+While typing pinyin, `←` `→` move the candidate highlight; otherwise `←` `→`, `Home` and `End` move the cursor in the box (with `Shift` held they select), `⌘ + A` (`Ctrl + A` on Windows) selects all, and `Delete` removes the selection or the character after the cursor; clicking in the box places the cursor and dragging selects.
+Details in [Translating in the symbol panel](../cloud/question-and-translate.md#Translating-in-the-symbol-panel).
 
 ## In English mode
 
@@ -92,6 +97,7 @@ All of these require AI services to be turned on first; see [AI services](../clo
 | Translation result: replace the selection | `Enter` / `Space` / `1` | Same | Same |
 | Translation result: keep the original | `Esc` | `Esc` | `Esc` |
 | Ask for AI candidates manually while typing pinyin | `⌃⌥J` | `Ctrl + Alt + J` | `Ctrl + Alt + J` |
+| Open the Translate group of the symbol panel when not typing | `⌃⌥Y` | `Ctrl + Alt + Y` | — |
 | Ask about a character | `u`, then type pinyin | Same | Same |
 
 ## Prefixes

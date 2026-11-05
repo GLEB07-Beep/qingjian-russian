@@ -45,6 +45,9 @@ interface PanelActions {
     /** 就地改一个开关设置（[Settings] 里的键）。 */
     fun setToggle(key: String, on: Boolean)
 
+    /** 就地改一个选项设置（[Settings] 里的键，值是选项的名字）。 */
+    fun setChoice(key: String, value: String)
+
     /** 剪贴板里点了一张图（图片文件路径）：发进输入框，输入框不收图片就放回系统剪贴板。 */
     fun commitImage(path: String)
 
@@ -73,4 +76,10 @@ interface PanelActions {
 
     /** 剪贴板最多存多少条（设置里的）。 */
     val clipboardLimit: Int
+
+    /** 当前应用勾没勾游戏键盘；没有可勾的应用（青简自己的输入框）是 null，功能面板就不放这一格。 */
+    val gameKeyboard: Boolean?
+
+    /** 功能面板的「游戏键盘」：给当前应用开或关。 */
+    fun toggleGameKeyboard()
 }

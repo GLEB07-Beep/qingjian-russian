@@ -7,6 +7,7 @@ mod alignment;
 mod annotation;
 mod aux_code;
 mod candidate_menu;
+mod caret;
 mod choice;
 mod code_keys;
 mod commit;
@@ -22,7 +23,7 @@ mod learning;
 mod marked;
 mod mode_keys;
 mod panel;
-mod prediction;
+pub(crate) mod prediction;
 mod privacy;
 mod query;
 mod raw;
@@ -79,7 +80,7 @@ use crate::correction::{Correction, TypoCosts};
 use crate::emoji::EmojiTable;
 use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;
-use crate::panel::{NoPanelHistory, PanelHistory, SymbolPanel};
+use crate::panel::{NoPanelHistory, PanelGroup, PanelHistory, SymbolPanel, TranslationCache};
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
 use crate::sentence::{self, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer};
@@ -318,6 +319,9 @@ pub struct Engine {
     /// 双拼方案下候选窗口的拼音行显示原始按键还是全拼，与 [`Self::shuangpin_raw_preedit`] 各管各的。
     shuangpin_raw_window: bool,
 
+    /// 双拼方案下同时接受全拼（以及同一输入里两种打法的混用），见 [`crate::shuangpin`] 的混输一节。
+    shuangpin_full_pinyin: bool,
+
     /// 注音模式开关，開著時緩衝區裡是注音大千鍵位，查詞前先解成拼音（見 [`crate::zhuyin`]）。
     zhuyin: bool,
 
@@ -356,6 +360,15 @@ pub struct Engine {
 
     /// 面板条目的使用记录：打开面板时排「常用」，从面板上屏时记一次；缺省不记。
     panel_history: Box<dyn PanelHistory>,
+
+    /// 面板上次关掉时停在哪组：没在组句时打开就回到那组。
+    panel_group: Option<PanelGroup>,
+
+    /// 翻译组上次选的目标语言；没选过跟学习语言走。
+    panel_language: Option<Language>,
+
+    /// 翻译组的译文缓存，换联想提供方时清空。
+    panel_translations: TranslationCache,
 
     /// 辅码态：`None` 是拼音态，`Some` 是辅码态（空串 = 刚敲下触发键、码段还没开始）。
     /// 码段不进 `composition`：它与拼音分段记账、分段画（见 [`AuxSegment`]）。
@@ -571,6 +584,7 @@ impl Engine {
             shuangpin: None,
             shuangpin_raw_preedit: false,
             shuangpin_raw_window: false,
+            shuangpin_full_pinyin: false,
             zhuyin: false,
             nine_key: false,
             code: None,
@@ -583,6 +597,9 @@ impl Engine {
             symbol_limit: 1,
             panel: None,
             panel_history: Box::new(NoPanelHistory),
+            panel_group: None,
+            panel_language: None,
+            panel_translations: TranslationCache::default(),
             aux_code: None,
             aux_enabled: false,
             aux_show: false,
@@ -657,7 +674,7 @@ fn marked_rest(rest: &str) -> String {
         return String::new();
     }
     match segment_longest_prefix(rest) {
-        Ok((segmentations, tail)) => query::join_marked(&segmentations, tail),
+        Ok((segmentations, tail)) => query::join_spelled(&segmentations, tail),
         Err(_) => rest.to_owned(),
     }
 }

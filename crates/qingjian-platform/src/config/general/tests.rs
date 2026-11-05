@@ -7,6 +7,9 @@ fn horizontal_grid_is_off_unless_switched_on() {
     assert!(!general.horizontal_grid);
     let general: GeneralConfig = toml::from_str("horizontal_grid = true\n").unwrap();
     assert!(general.horizontal_grid);
+    assert!(!GeneralConfig::default().grid_page_keys);
+    let general: GeneralConfig = toml::from_str("grid_page_keys = true\n").unwrap();
+    assert!(general.grid_page_keys);
 }
 
 #[test]
@@ -53,6 +56,16 @@ fn punct_commits_defaults_off() {
     assert!(!GeneralConfig::default().punct_commits);
     let general: GeneralConfig = toml::from_str("punct_commits = true\n").unwrap();
     assert!(general.punct_commits);
+}
+
+#[test]
+fn double_shift_third_input_defaults_off() {
+    assert_eq!(
+        GeneralConfig::default().double_shift_input,
+        ThirdInputMethod::Off
+    );
+    let general: GeneralConfig = toml::from_str("double_shift_input = \"vietnamese\"\n").unwrap();
+    assert_eq!(general.double_shift_input, ThirdInputMethod::Vietnamese);
 }
 
 #[test]
@@ -240,4 +253,13 @@ fn legacy_shuangpin_and_zhuyin_keys_are_read_but_scheme_wins() {
     general.scheme = "pinyin".to_owned();
     assert_eq!(general.scheme(), Scheme::Pinyin);
     assert!(!general.is_zhuyin());
+}
+
+#[test]
+fn ui_language_defaults_to_simplified_chinese_and_system_follows_the_system() {
+    assert_eq!(GeneralConfig::default().ui_locale(), "zh-Hans");
+    let general: GeneralConfig = toml::from_str("ui_language = \"system\"\n").unwrap();
+    assert_eq!(general.ui_locale(), "");
+    let general: GeneralConfig = toml::from_str("ui_language = \"vi\"\n").unwrap();
+    assert_eq!(general.ui_locale(), "vi");
 }

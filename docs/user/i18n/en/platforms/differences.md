@@ -33,7 +33,8 @@ The macOS and Windows versions are in beta with nearly the same features; keys f
 | System text replacements | ✓ | — | — | — |
 | Importing pinyin dictionaries | ✓ | ✓ | ✓ | ✓ |
 | Importing Wubi dictionaries | ✓ | ✓ | — | — |
-| Voice input, swipe typing, clipboard | — | — | — | ✓ |
+| Qingjian Clipboard (copy history, local network sync) | ✓ | ✓ | — | ✓ |
+| Voice input, swipe typing | — | — | — | ✓ |
 
 ## Learning languages
 
@@ -50,6 +51,7 @@ The macOS and Windows versions are in beta with nearly the same features; keys f
 | Seven built-in themes, light and dark | ✓ | ✓ | — (Fcitx panel) | ✓ |
 | Custom themes | ✓ | ✓ | — | — |
 | Expanding horizontal layout into rows | ✓ | ✓ | — | — |
+| Paging keys expand horizontal layout | ✓ | ✓ | — | — |
 | Tones on the pinyin line | ✓ | ✓ | — | — |
 | Floating status bar | — | ✓ | — | — |
 
@@ -72,7 +74,7 @@ The macOS and Windows versions are in beta with nearly the same features; keys f
 | Quick translation bar | — | — | — | ✓ |
 | Filling in glosses automatically | ✓ | ✓ | ✓ | ✓ |
 | Sentence translation for the vocabulary book | ✓ | ✓ | ✓ | — |
-| Translating sentence candidates | — | ✓ | — | — |
+| Translating in the symbol panel | ✓ | ✓ | — | — |
 | AI usage statistics | ✓ | ✓ | ✓ | — |
 
 Installation and platform-specific features: [Installation](../getting-started/install.md) (macOS, Windows), [Linux](linux.md), [Android](android.md).

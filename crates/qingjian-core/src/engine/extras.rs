@@ -5,11 +5,43 @@ use super::{
     Learner, MIN_COMPLETION_LETTERS,
 };
 use crate::candidate::{Candidate, CandidateKind};
+use crate::custom_phrase::{CustomPhrase, expand_variables};
 use crate::emoji::EmojiTable;
 use crate::shortcut;
 use qingjian_dictionary::WordList;
 
 impl Engine {
+    /// 叹词的标准音（嗯 ng、哼 hng、噷 hm）不是拼音音节（音节表不收叹词写法，`n` / `m` 要留给简拼），
+    /// 整段正好是这几个键时按快捷候选给（#880）。双拼里 `ng` 是 neng，能 留在第一、嗯 排第二；
+    /// hm / hng 在双拼里是别的音、注音里不是这些键，都不给。
+    fn insert_interjection(&self, items: &mut Vec<Candidate>, scope: &str) {
+        if self.zhuyin {
+            return;
+        }
+        let shuangpin = self.shuangpin.is_some();
+        let (text, at) = match scope {
+            "ng" => ("嗯", usize::from(shuangpin)),
+            "hng" if !shuangpin => ("哼", 0),
+            // hm 也是 好吗 一类的简拼
+            "hm" if !shuangpin => ("噷", 1),
+            _ => return,
+        };
+        // 已经有这个字（九宫格选定了 ng、或词库按别的读音带出来排在后面）就挪上来，不另插一个
+        let candidate = match items.iter().position(|c| c.text == text) {
+            Some(found) if found <= at => return,
+            Some(found) => items.remove(found),
+            None => Candidate {
+                text: text.to_owned(),
+                kind: CandidateKind::Shortcut,
+                syllables: Vec::new(),
+                reading: None,
+                translation: None,
+                aux_code: None,
+            },
+        };
+        items.insert(at.min(items.len()), candidate);
+    }
+
     /// 精确匹配自定义输入码时，数字键应选择候选。
     pub(super) fn has_custom_phrase(&self) -> bool {
         !self.english_mode
@@ -24,7 +56,30 @@ impl Engine {
     ///
     /// 英文模式下只出内容不含汉字的短语：`dont` → `don't` 该生效，但中文短语（含在中文模式里右键
     /// 「置顶」按拼音加的那条，如 `he` → 和）在英文模式按空格上屏就是中文，与英文候选的语义冲突（#763）。
+    /// 时间变量（`{year}` 这类）在这里按当时的时间换掉，候选窗显示与上屏的是同一串。
     pub(super) fn insert_custom_phrases(&self, items: &mut Vec<Candidate>) {
+        let now = jiff::Zoned::now();
+        let texts: Vec<String> = self
+            .scope_phrases()
+            .into_iter()
+            .map(|phrase| expand_variables(&phrase.text, &now).into_owned())
+            .collect();
+        items.retain(|c| !texts.contains(&c.text));
+        items.splice(
+            0..0,
+            texts.into_iter().enumerate().map(|(i, text)| Candidate {
+                text,
+                kind: CandidateKind::Custom(i + 1),
+                syllables: Vec::new(),
+                reading: None,
+                translation: None,
+                aux_code: None,
+            }),
+        );
+    }
+
+    /// 当前输入码下出候选的短语，按出现的先后：权重从高到低，相同的按列表顺序。第 i 个就是 `CandidateKind::Custom(i + 1)`。
+    pub(super) fn scope_phrases(&self) -> Vec<&CustomPhrase> {
         let mut phrases: Vec<_> = self
             .custom_phrases
             .iter()
@@ -35,21 +90,7 @@ impl Engine {
             })
             .collect();
         phrases.sort_by_key(|p| std::cmp::Reverse(p.weight));
-        items.retain(|c| !phrases.iter().any(|p| p.text == c.text));
-        items.splice(
-            0..0,
-            phrases
-                .into_iter()
-                .enumerate()
-                .map(|(i, phrase)| Candidate {
-                    text: phrase.text.clone(),
-                    kind: CandidateKind::Custom(i + 1),
-                    syllables: Vec::new(),
-                    reading: None,
-                    translation: None,
-                    aux_code: None,
-                }),
-        );
+        phrases
     }
 
     /// 日期 / 时间 / 星期这类快捷候选插在本地首选之后：`rq` 首选仍是词库里的词，快捷写法紧随其后。
@@ -60,21 +101,7 @@ impl Engine {
             } else {
                 self.modes().expression
             };
-        // 嗯 的标准音 ng 不是拼音音节（音节表不收叹词写法）；整段正好是 ng 时按快捷候选给它，排第一。
-        // 只认全拼：双拼与注音里这两个键是别的音
-        if scope == "ng" && self.shuangpin.is_none() && !self.zhuyin {
-            items.insert(
-                0,
-                Candidate {
-                    text: "嗯".to_owned(),
-                    kind: CandidateKind::Shortcut,
-                    syllables: Vec::new(),
-                    reading: None,
-                    translation: None,
-                    aux_code: None,
-                },
-            );
-        }
+        self.insert_interjection(items, scope);
         let shortcuts = shortcut::candidates(scope, expression_char, &jiff::Zoned::now());
         if shortcuts.is_empty() {
             return;

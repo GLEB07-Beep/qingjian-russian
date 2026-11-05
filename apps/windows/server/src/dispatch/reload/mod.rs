@@ -31,9 +31,9 @@ fn mtime(path: &Path) -> Option<SystemTime> {
         .ok()
 }
 
-/// 按 `[predict]` 接云联想、整句候选翻译与释义兜底；关着或缺密钥就退回本地实现。启动与热加载共用。
+/// 按 `[predict]` 接云联想与释义兜底；关着或缺密钥就退回本地实现。启动与热加载共用。
 pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig, usage_path: Option<PathBuf>) {
-    if !predict.enabled && !predict.sentence_translation {
+    if !predict.enabled {
         tracing::info!("云联想未开启（[predict] enabled = false）");
         engine.set_predictor(Box::new(NoPredictor));
         engine.set_gloss_filler(Box::new(NoGlossFiller));
@@ -42,7 +42,7 @@ pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig, usage_path: Op
     match CloudPredictor::new_with_usage(predict, usage_path.clone()) {
         Ok(predictor) => {
             engine.set_predictor(Box::new(predictor));
-            tracing::info!(model = %predict.model, cloud = predict.enabled, sentence_translation = predict.sentence_translation, "云联想已接入");
+            tracing::info!(model = %predict.model, "云联想已接入");
         }
         Err(error) => {
             tracing::warn!(%error, "云联想接入失败（缺 API key？），退回本地候选");
@@ -220,6 +220,7 @@ impl Router {
 
     /// 应用新配置。学习语言变了换释义表（词汇等级表启动时已全装，不用换）。
     fn apply_config(&mut self, config: &Config) {
+        crate::clipboard_process::sync(config.clipboard.enabled);
         self.engine.set_fuzzy(config.fuzzy);
         // Windows 端此前漏装 custom_phrases（macOS 端 apply_config 有）；失败只记日志，保持原短语
         if let Err(error) = self
@@ -263,18 +264,19 @@ impl Router {
         self.engine
             .set_shuangpin_raw_window(config.general.shuangpin_raw_window);
         self.engine
+            .set_shuangpin_full_pinyin(config.general.shuangpin_full_pinyin);
+        self.engine
             .set_hold_selections(config.general.hold_selections);
         self.engine
             .set_context_memory(config.model.context_memory_seconds);
         let previous = self.config.render_settings();
-        let grid_keys = self.config.grid_keys();
         let next = RouterConfig::from(config);
         self.reload_mode(&next);
         let themes_stamp = self.config.themes_stamp;
         self.config = next;
         self.config.themes_stamp = themes_stamp;
-        // 矩阵这套键不生效了（排布切走 / 开关关掉）：展开着的矩阵收回去，等下一帧照单行画
-        if grid_keys && !self.config.grid_keys() {
+        // 两个展开开关都不生效了（排布切走 / 开关关掉）：展开着的矩阵收回去，等下一帧照单行画
+        if !self.config.grid_keys() && !self.config.page_keys_expand() {
             self.collapse_grid();
         }
         let settings = self.config.render_settings();

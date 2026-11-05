@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use super::scheme::Scheme;
 use super::{
     Appearance, CandidateRenderer, EmojiCount, FontSize, KeyHintMode, LayoutMode,
-    LegacyTraditional, LogLevel, NumpadDigit, PreeditMode, ShiftLetter,
+    LegacyTraditional, LogLevel, NumpadDigit, PreeditMode, ShiftLetter, ThirdInputMethod,
 };
 use crate::code_schemes::{self, WUBI86};
 
@@ -60,6 +60,10 @@ pub struct GeneralConfig {
 
     /// 横排时上 / 下键把单行展开成多行矩阵（左 / 右键改为移动候选高亮，Esc 第一下先收回）。缺省关：横排下的按键与以前一样。
     pub horizontal_grid: bool,
+
+    /// 横排时翻页键（主翻页键、额外翻页键、PageUp / PageDown、Tab）也把单行展开成矩阵，与 `↓` 展开同一套。
+    /// 缺省关：翻页键照旧整页翻（#805）。
+    pub grid_page_keys: bool,
 
     /// 候选窗口由青简渲染器还是系统原生绘制。
     pub renderer: CandidateRenderer,
@@ -128,6 +132,9 @@ pub struct GeneralConfig {
     /// Windows：按应用 exe 名记住中英状态，仅保存在本次 Server 运行期间。
     pub remember_mode_per_app: bool,
 
+    /// 连按两次 Shift 时切换到的第三输入法；缺省关。当前先保存用户选择，运行时接入随第三输入法实现补上。
+    pub double_shift_input: ThirdInputMethod,
+
     /// 中文模式下不在组句时敲的标点转成全角（`，。？！` 等，数字后的 `.` 保持半角）。
     /// Windows 悬浮状态条上可点切换；macOS 在偏好设置中选择默认模式。
     pub full_width_punctuation: bool,
@@ -162,6 +169,10 @@ pub struct GeneralConfig {
 
     /// 双拼方案下候选窗口的拼音行显示原始按键还是全拼，与 `shuangpin_raw_preedit` 各管各的，两项组合出四种显示。缺省关（全拼）。
     pub shuangpin_raw_window: bool,
+
+    /// 双拼方案下同时接受全拼（同一段输入里两种打法也能混用）。缺省关：只用选定的双拼方案。
+    /// 开着时家里有人打双拼、有人打全拼可以共用一份设置。
+    pub shuangpin_full_pinyin: bool,
 
     /// 一段拼音分几次选完时，先选的词留在输入框里、整段选完才一起上屏，退格先撤回选择。缺省开；关掉是选了就上屏。
     pub hold_selections: bool,
@@ -203,6 +214,10 @@ pub struct GeneralConfig {
     /// 简繁快捷键切回繁体时用的字形，快捷键切到简体时记下切走前那一档；读法见 [`Self::last_traditional`]。
     pub last_traditional: String,
 
+    /// 设置程序等界面用的语言（`zh-Hans`、`en`、`vi`…），`system` 跟随系统，空串是缺省的简体中文；读用 [`Self::ui_locale`]。
+    /// 只管界面文字，不影响打字与译文。
+    pub ui_language: String,
+
     /// 日志级别，缺省 info（不含用户敲的内容）。
     pub log_level: LogLevel,
 
@@ -217,6 +232,12 @@ pub struct GeneralConfig {
     pub system_text_replacements: bool,
 }
 
+/// 界面语言跟随系统的配置写法。
+pub const UI_LANGUAGE_SYSTEM: &str = "system";
+
+/// 配置里没写界面语言时用的语言。
+pub const UI_LANGUAGE_DEFAULT: &str = "zh-Hans";
+
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
@@ -229,6 +250,7 @@ impl Default for GeneralConfig {
             theme: DEFAULT_THEME.to_owned(),
             layout: LayoutMode::default(),
             horizontal_grid: false,
+            grid_page_keys: false,
             renderer: CandidateRenderer::default(),
             font: String::new(),
             candidate_font_size: FontSize::default(),
@@ -250,6 +272,7 @@ impl Default for GeneralConfig {
             english_mode: true,
             default_english: false,
             remember_mode_per_app: false,
+            double_shift_input: ThirdInputMethod::default(),
             full_width_punctuation: true,
             english_full_width_punctuation: false,
             punct_commits: false,
@@ -259,6 +282,7 @@ impl Default for GeneralConfig {
             scheme: String::new(),
             shuangpin_raw_preedit: false,
             shuangpin_raw_window: false,
+            shuangpin_full_pinyin: false,
             hold_selections: true,
             key_hint: KeyHintMode::default(),
             key_hint_opacity: DEFAULT_KEY_HINT_OPACITY,
@@ -270,6 +294,7 @@ impl Default for GeneralConfig {
             traditional_variant: TraditionalVariant::Off.key().to_owned(),
             traditional: None,
             last_traditional: String::new(),
+            ui_language: String::new(),
             log_level: LogLevel::default(),
             input_log: true,
             learning: true,
@@ -279,6 +304,15 @@ impl Default for GeneralConfig {
 }
 
 impl GeneralConfig {
+    /// 交给 `bamboo_slip_i18n::set_locale` 的界面语言：没写时简体中文（用户多是系统设成英文的中文用户），`system` 跟随系统（空串）。
+    pub fn ui_locale(&self) -> &str {
+        match self.ui_language.trim() {
+            "" => UI_LANGUAGE_DEFAULT,
+            UI_LANGUAGE_SYSTEM => "",
+            tag => tag,
+        }
+    }
+
     /// 繁体输出：`traditional_variant` 优先；没写时看旧键，`true` 是台湾字形（与 0.2.1 的输出相同），字符串按同一套写法读。
     pub fn traditional(&self) -> TraditionalVariant {
         let key = self.traditional_variant.trim();

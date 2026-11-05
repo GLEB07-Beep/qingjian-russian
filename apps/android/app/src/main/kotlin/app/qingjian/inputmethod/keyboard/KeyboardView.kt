@@ -15,10 +15,12 @@ import app.qingjian.inputmethod.popup.ChoicePopup
 import app.qingjian.inputmethod.settings.Settings
 import app.qingjian.inputmethod.theme.Palette
 import kotlin.math.abs
+import kotlin.math.hypot
 
 /**
  * 自绘键盘。多指各自跟踪（快打时前一指没抬后一指已落），抬起时出键；退格长按连发；
- * 九宫格的数字键长按弹气泡选字母 / 数字；全键盘拼音与英文键盘开着「滑行输入」时，落在字母键上的手指挪开够远就是滑行（[SwipeTrail]）。
+ * 九宫格的数字键长按弹气泡选字母 / 数字；开着「上滑输入」时在键上往上一划出长按的那一项（键面角标或数字）；
+ * 全键盘拼音与英文键盘开着「滑行输入」时，落在字母键上的手指挪开够远就是滑行（[SwipeTrail]）。
  * 顶排的按键气泡要画到候选条上，父容器得关 clipChildren。
  */
 @SuppressLint("ViewConstructor")
@@ -57,7 +59,7 @@ class KeyboardView(
     }
 
     private val metrics = KeyboardMetrics(resources.displayMetrics.density, settings.heightPercent)
-    private val painter = KeyPainter(palette, metrics)
+    private val painter = KeyPainter(palette, metrics, settings.keyTextSize.scale)
     private val side = SideColumn(metrics.density) { item ->
         tapFeedback()
         listener.onSideItem(item)
@@ -93,14 +95,27 @@ class KeyboardView(
     private val longPress = Runnable { openChoices() }
 
     /**
-     * 按着空格的那根手指；横着滑开就进挪光标，按住不动到点进语音（关着「长按空格说话」或语音开不起来时进挪光标），
+     * 按着空格的那根手指；横着滑开就进挪光标（「空格滑动移动光标」开着时），按住不动到点进语音（关着「长按空格说话」或语音开不起来时进挪光标），
      * 这两种抬手都不出空格。
      */
     private var spacePointer = -1
     private var spaceAnchorX = 0f
+    private var spaceAnchorY = 0f
     private var cursorMode = false
     private var voiceMode = false
     private val spaceHold = Runnable { onSpaceHold() }
+
+    /**
+     * 可能是上滑的那根手指与它落下的键（[Key.flick]，开着「上滑输入」时）；-1 是没在看。
+     * 往上划过 [FLICK_DP] 且一路都在往上的扇形里（[FLICK_SLOPE]）就 [flickArmed]，抬手出上滑的字，不出键本身、也不算滑行；
+     * 中途偏出扇形就 [flickBroken]，这一笔不再当上滑。
+     */
+    private var flickPointer = -1
+    private var flickSlot: KeySlot? = null
+    private var flickX = 0f
+    private var flickY = 0f
+    private var flickArmed = false
+    private var flickBroken = false
 
     /** 这一套键位能不能滑行（全键盘拼音与英文键盘，服务按当前键盘设）；还要设置里开着「滑行输入」。 */
     var swipeLayout = false
@@ -109,11 +124,11 @@ class KeyboardView(
 
     private val trail = SwipeTrail(palette, resources.displayMetrics.density)
 
-    /** Shift 亮着：字母画成大写。 */
-    var shifted: Boolean
-        get() = painter.shifted
+    /** Shift 亮着字母画成大写，锁定时 Shift 键上另画一道横线。 */
+    var shift: ShiftState
+        get() = painter.shift
         set(value) {
-            painter.shifted = value
+            painter.shift = value
             invalidate()
         }
 
@@ -193,8 +208,12 @@ class KeyboardView(
     override fun onDraw(canvas: Canvas) {
         for (slot in slots) painter.drawKey(canvas, slot, down = pressed.containsValue(slot))
         if (side.enabled) painter.drawSide(canvas, side)
-        trail.draw(canvas)
-        if (settings.keyPopup) {
+        val flicking = flickSlot?.takeIf { flickArmed }
+        if (flicking == null) trail.draw(canvas)
+        if (flicking != null) {
+            // 上滑出的是哪个字放在气泡里；`;` 兼大写那个键划出的是 Shift，键本身亮着就够了
+            flicking.key.flick?.let { painter.drawBubble(canvas, flicking, width, it) }
+        } else if (settings.keyPopup) {
             pressed.values.filter { it.key.poppable && !choicePopup.showing }.forEach { painter.drawBubble(canvas, it, width) }
         }
     }
@@ -214,6 +233,14 @@ class KeyboardView(
                     trail.begin(pointer, event.getX(index), event.getY(index), slot.bounds.width())
                 }
                 pressed[pointer] = slot
+                if (flickPointer < 0 && flickable(slot.key)) {
+                    flickPointer = pointer
+                    flickSlot = slot
+                    flickX = event.getX(index)
+                    flickY = event.getY(index)
+                    flickArmed = false
+                    flickBroken = false
+                }
                 tapFeedback()
                 when {
                     slot.key == Key.Backspace -> {
@@ -224,6 +251,7 @@ class KeyboardView(
                     slot.key is Key.Space -> {
                         spacePointer = pointer
                         spaceAnchorX = event.getX(index)
+                        spaceAnchorY = event.getY(index)
                         cursorMode = false
                         voiceMode = false
                         timer.postDelayed(spaceHold, if (settings.voiceHoldSpace) VOICE_HOLD_MS else LONG_PRESS_MS)
@@ -239,12 +267,24 @@ class KeyboardView(
             }
 
             MotionEvent.ACTION_MOVE -> {
+                trackFlick(event)
                 trackSwipe(event)
                 trackChoices(event)
                 trackCursor(event)
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+                if (pointer == flickPointer) {
+                    val flicked = flickSlot?.takeIf { flickArmed }
+                    endFlick()
+                    if (flicked != null) {
+                        if (pointer == trail.pointer) trail.clear()
+                        pressed.remove(pointer)
+                        flick(flicked.key)
+                        invalidate()
+                        return true
+                    }
+                }
                 if (pointer == trail.pointer) {
                     val swiped = trail.swiping
                     if (swiped) listener.onSwipe(trail.toJson(slots))
@@ -302,6 +342,51 @@ class KeyboardView(
         }
     }
 
+    private fun flickable(key: Key) = (key as? Key.Letter)?.flickShift == true || (settings.flickSymbols && key.flick != null)
+
+    /**
+     * 上滑的那根手指挪动：只看方向不看落在哪一列，单手拇指划出的斜线也算（#882）。
+     * 一离开按下的那一点就得在往上的扇形里，往上划够 [FLICK_DP] 算上滑；中途偏出扇形（横着走、往下、拐弯）就作废，
+     * 交给滑行（[SwipeTrail]）或点按，所以跨键的滑行不会被当成上滑。
+     * 刚往上走就撤掉等着的长按：慢慢往斜上划时长按先到点弹出气泡，手指再一歪就选上了气泡左边的大写。
+     */
+    private fun trackFlick(event: MotionEvent) {
+        if (flickSlot == null || flickBroken) return
+        val at = event.findPointerIndex(flickPointer)
+        if (at < 0 || choicePopup.showing) return
+        for (h in 0 until event.historySize) followFlick(event.getHistoricalX(at, h), event.getHistoricalY(at, h))
+        followFlick(event.getX(at), event.getY(at))
+    }
+
+    private fun followFlick(x: Float, y: Float) {
+        if (flickBroken) return
+        val up = flickY - y
+        val side = abs(x - flickX)
+        // 按下附近的抖动不算方向
+        if (hypot(x - flickX, up) < metrics.density * TRACK_SLOP_DP) return
+        if (up <= 0f || side > up * FLICK_SLOPE) {
+            flickBroken = true
+            flickArmed = false
+            return
+        }
+        if (longPressPointer == flickPointer) {
+            timer.removeCallbacks(longPress)
+            longPressPointer = -1
+        }
+        flickArmed = up > metrics.density * FLICK_DP
+    }
+
+    private fun endFlick() {
+        flickPointer = -1
+        flickSlot = null
+        flickArmed = false
+        flickBroken = false
+    }
+
+    private fun flick(key: Key) {
+        if ((key as? Key.Letter)?.flickShift == true) listener.onKey(Key.Shift) else key.flick?.let(listener::onKeyChoice)
+    }
+
     /** 长按气泡里的项：中英键是语言名，其余是键自己的。 */
     private fun choicesOf(key: Key) = if (key == Key.Language) languageChoices else key.choices
 
@@ -317,7 +402,11 @@ class KeyboardView(
         getLocationOnScreen(screenLocation)
         choicePopup.show(
             choiceItems.map { ChoicePopup.Item(it) },
-            initial = if (key == Key.Language) languageChoice else key.initialChoice,
+            initial = when {
+                key == Key.Language -> languageChoice
+                key is Key.Letter && settings.longPressUpper -> 0
+                else -> key.initialChoice
+            },
             fingerScreenX = screenLocation[0] + slot.bounds.centerX(),
             bottom = slot.bounds.top,
             centred = key is Key.Letter,
@@ -348,7 +437,7 @@ class KeyboardView(
         )
     }
 
-    /** 按住空格不动到点：开着「长按空格说话」先试语音，开不起来（还不能用、没权限）退回挪光标。 */
+    /** 按住空格不动到点：开着「长按空格说话」先试语音，开不起来（还不能用、没权限）退回挪光标（挪光标也关着就当普通空格）。 */
     private fun onSpaceHold() {
         if (spacePointer < 0 || cursorMode || voiceMode) return
         if (settings.voiceHoldSpace && listener.onVoiceHold()) {
@@ -357,7 +446,7 @@ class KeyboardView(
             invalidate()
             return
         }
-        enterCursorMode()
+        if (settings.spaceCursor) enterCursorMode()
     }
 
     /** 按着空格说话：手指挪到哪儿交给语音面板（它盖在键盘上，按屏幕坐标对）。 */
@@ -375,14 +464,15 @@ class KeyboardView(
         Haptics.hold(context)
     }
 
-    /** 按着空格横着滑：滑开一段就进挪光标，之后每 [CURSOR_STEP_DP] 挪一格。 */
+    /** 按着空格横着滑：横向滑开一段（比竖向多）就进挪光标，之后每 [CURSOR_STEP_DP] 挪一格。 */
     private fun trackCursor(event: MotionEvent) {
         if (voiceMode) return trackVoice(event)
         val at = event.findPointerIndex(spacePointer)
         if (at < 0) return
         val dx = event.getX(at) - spaceAnchorX
         val step = metrics.density * CURSOR_STEP_DP
-        if (!cursorMode && abs(dx) > step) enterCursorMode()
+        val dy = event.getY(at) - spaceAnchorY
+        if (!cursorMode && settings.spaceCursor && abs(dx) > step && abs(dx) > abs(dy)) enterCursorMode()
         if (!cursorMode) return
         val steps = (dx / step).toInt()
         if (steps == 0) return
@@ -393,6 +483,7 @@ class KeyboardView(
     private fun release() {
         pressed.clear()
         trail.clear()
+        endFlick()
         timer.removeCallbacks(repeatBackspace)
         timer.removeCallbacks(longPress)
         timer.removeCallbacks(spaceHold)
@@ -429,6 +520,15 @@ class KeyboardView(
         /** 按住空格不动这么久进语音（开着「长按空格说话」时）。 */
         const val VOICE_HOLD_MS = 400L
         const val TRACK_SLOP_DP = 10f
+
+        /** 往上划多远算上滑：点按时手指一般挪不到 10dp，再长短距离一划就够不着。 */
+        const val FLICK_DP = 18f
+
+        /**
+         * 上滑的扇形：横向挪的不超过往上的这么多倍，约偏离竖直 50°（tan 50° ≈ 1.2），比横竖一样多（45°）再宽一点，
+         * 给单手拇指的斜线留余量；再宽就和往斜上走的滑行分不开了。
+         */
+        const val FLICK_SLOPE = 1.2f
         const val CURSOR_STEP_DP = 14f
     }
 }

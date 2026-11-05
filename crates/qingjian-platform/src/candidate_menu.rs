@@ -3,9 +3,10 @@
 
 use std::path::Path;
 
-use qingjian_core::{Candidate, CandidateKind, CustomPhrase, Engine, custom_phrase};
+use qingjian_core::{Candidate, CandidateKind, CustomPhrase, Engine, Language, custom_phrase};
 
 use crate::Config;
+use crate::i18n::{tr, tr_args};
 
 /// 菜单里的一项。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,10 +31,30 @@ pub enum CandidateAction {
 
     /// 用户词整个删掉，词库词清掉对它的学习记录。
     Delete,
+
+    /// 提高平台自有候选的选择权重；普通中文候选不展示，由平台候选上下文使用。
+    Promote,
+}
+
+/// 不经过中文 `Composition` 的输入法候选上下文。
+///
+/// 越南语、将来的日语/韩语等只需提供稳定命名空间、当前输入码和译词目标语言，
+/// 即可复用候选排序学习和右键菜单；命名空间会隔离各输入法及中文拼音的学习数据。
+#[derive(Debug, Clone, Copy)]
+pub struct IndependentInputContext<'a> {
+    pub namespace: &'a str,
+    pub input: &'a str,
+    pub translation_language: Language,
+}
+
+impl IndependentInputContext<'_> {
+    pub fn learning_key(self) -> String {
+        format!("{}:{}", self.namespace, self.input)
+    }
 }
 
 impl CandidateAction {
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::EditTranslation,
         Self::RegenerateTranslation,
         Self::Pin,
@@ -41,17 +62,19 @@ impl CandidateAction {
         Self::Demote,
         Self::Undemote,
         Self::Delete,
+        Self::Promote,
     ];
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::EditTranslation => "修改译文…",
-            Self::RegenerateTranslation => "模型重新生成译文",
-            Self::Pin => "置顶",
-            Self::Unpin => "取消置顶",
-            Self::Demote => "降权",
-            Self::Undemote => "取消降权",
-            Self::Delete => "删除",
+            Self::EditTranslation => tr("candidate_menu.edit_translation"),
+            Self::RegenerateTranslation => tr("candidate_menu.regenerate_translation"),
+            Self::Pin => tr("candidate_menu.pin"),
+            Self::Unpin => tr("candidate_menu.unpin"),
+            Self::Demote => tr("candidate_menu.demote"),
+            Self::Undemote => tr("candidate_menu.undemote"),
+            Self::Delete => tr("candidate_menu.delete"),
+            Self::Promote => tr("candidate_menu.promote"),
         }
     }
 
@@ -101,6 +124,62 @@ pub fn actions(
     actions
 }
 
+/// 独立输入法候选的公共菜单项。它不依赖中文拼音 Composition，也不提供中文自定义短语和删除用户词。
+pub fn independent_actions(
+    engine: &Engine,
+    candidate: &Candidate,
+    context: IndependentInputContext<'_>,
+) -> Vec<CandidateAction> {
+    let key = context.learning_key();
+    let mut actions = vec![CandidateAction::Promote, CandidateAction::Demote];
+    if engine.external_candidate_demotion(&key, &candidate.text) > 0 {
+        actions.push(CandidateAction::Undemote);
+    }
+    if engine.prediction_enabled() {
+        actions.push(CandidateAction::RegenerateTranslation);
+    }
+    actions
+}
+
+/// 独立输入法菜单操作的结果。`translation_request` 有值时，壳应向模型请求该目标语言的译词。
+pub struct IndependentActionOutcome {
+    pub notice: String,
+    pub translation_request: Option<Language>,
+}
+
+pub fn perform_independent(
+    action: CandidateAction,
+    engine: &mut Engine,
+    candidate: &Candidate,
+    context: IndependentInputContext<'_>,
+) -> Option<IndependentActionOutcome> {
+    let key = context.learning_key();
+    let text = &candidate.text;
+    let (notice, translation_request) = match action {
+        CandidateAction::Promote => {
+            engine.promote_external_candidate(&key, text);
+            (format!("「{text}」已提权"), None)
+        }
+        CandidateAction::Demote => {
+            engine.demote_external_candidate(&key, text);
+            (format!("「{text}」已降权"), None)
+        }
+        CandidateAction::Undemote => {
+            engine.undemote_external_candidate(&key, text);
+            (format!("已取消「{text}」的降权"), None)
+        }
+        CandidateAction::RegenerateTranslation => (
+            "模型正在重新生成译词…".to_owned(),
+            Some(context.translation_language),
+        ),
+        _ => return None,
+    };
+    Some(IndependentActionOutcome {
+        notice,
+        translation_request,
+    })
+}
+
 /// 菜单项做完的结果。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActionOutcome {
@@ -125,12 +204,12 @@ pub fn perform(
         phrases_changed: false,
     };
     match action {
-        CandidateAction::EditTranslation | CandidateAction::RegenerateTranslation => {
-            notice("这项操作需要输入法窗口处理".to_owned())
-        }
+        CandidateAction::EditTranslation
+        | CandidateAction::RegenerateTranslation
+        | CandidateAction::Promote => notice(tr("candidate_menu.needs_window").to_owned()),
         CandidateAction::Pin | CandidateAction::Unpin => {
             let Some((code, stored)) = engine.pin_target(candidate) else {
-                return notice(format!("「{text}」这里不能置顶"));
+                return notice(tr_args("candidate_menu.cant_pin", &[("text", &text)]));
             };
             let mut list = phrases.to_vec();
             let changed = if action == CandidateAction::Pin {
@@ -139,31 +218,31 @@ pub fn perform(
                 custom_phrase::unpin(&mut list, &code, &stored)
             };
             if !changed {
-                return notice(format!("「{text}」没有要改的"));
+                return notice(tr_args("candidate_menu.unchanged", &[("text", &text)]));
             }
             let Some(path) = config_path else {
-                return notice("没有配置文件，置顶存不下来".to_owned());
+                return notice(tr("candidate_menu.no_config").to_owned());
             };
             if let Err(error) = Config::set_custom_phrases(path, &list) {
                 tracing::warn!(%error, "置顶写配置失败");
-                return notice(format!("没存上：{error}"));
+                return notice(tr_args("candidate_menu.not_saved", &[("error", &error)]));
             }
             ActionOutcome {
                 notice: if action == CandidateAction::Pin {
-                    format!("「{text}」已置顶，输入 {code} 时排第一")
+                    tr_args("candidate_menu.pinned", &[("text", &text), ("code", &code)])
                 } else {
-                    format!("已取消置顶「{text}」")
+                    tr_args("candidate_menu.unpinned", &[("text", &text)])
                 },
                 phrases_changed: true,
             }
         }
         CandidateAction::Demote => {
             engine.demote(candidate);
-            notice(format!("「{text}」已降权，往后挪了一位"))
+            notice(tr_args("candidate_menu.demoted", &[("text", &text)]))
         }
         CandidateAction::Undemote => {
             engine.undemote(candidate);
-            notice(format!("已取消「{text}」的降权"))
+            notice(tr_args("candidate_menu.undemoted", &[("text", &text)]))
         }
         CandidateAction::Delete => notice(engine.forget(candidate).describe(text)),
     }
@@ -179,6 +258,22 @@ mod tests {
             assert_eq!(CandidateAction::from_id(action.id()), Some(action));
         }
         assert_eq!(CandidateAction::from_id(0), None);
-        assert_eq!(CandidateAction::from_id(8), None);
+        assert_eq!(CandidateAction::from_id(9), None);
+    }
+
+    #[test]
+    fn independent_input_namespaces_isolate_learning_keys() {
+        let vietnamese = IndependentInputContext {
+            namespace: "vi",
+            input: "tieengs",
+            translation_language: Language::Chinese,
+        };
+        let japanese = IndependentInputContext {
+            namespace: "ja-romaji",
+            input: "nihon",
+            translation_language: Language::Chinese,
+        };
+        assert_eq!(vietnamese.learning_key(), "vi:tieengs");
+        assert_eq!(japanese.learning_key(), "ja-romaji:nihon");
     }
 }

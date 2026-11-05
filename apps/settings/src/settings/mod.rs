@@ -2,12 +2,14 @@
 //! 结构体与构造在这里，各职责的 `impl` 在子模块。
 
 mod app;
+mod clipboard;
 mod config;
 mod fields;
 mod library;
 mod phrases;
 mod search;
 mod shortcuts;
+mod transfer;
 mod vocabulary;
 
 #[cfg(test)]

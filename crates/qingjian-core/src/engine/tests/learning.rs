@@ -834,4 +834,3 @@ fn annotate_populates_level_badge_from_vocabulary_tracker() {
     assert_eq!(s_unk.text, "неизвестно");
     assert_eq!(s_unk.level, None);
 }
-

@@ -3,6 +3,8 @@
 //! 输入拼音，打印候选（词性 + 译文）和各阶段耗时；输入序号上屏并记入用户词频。
 //! 不依赖任何平台 API，是 Core 的第一个「壳」。
 
+#![forbid(unsafe_code)]
+
 mod args;
 mod cold;
 mod display;
@@ -252,7 +254,8 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         "加载完成"
     );
     let mut vocabulary = VocabularyBook::default();
-    let levels_path = std::path::PathBuf::from(format!("assets/levels/levels-{}.tsv", language.code()));
+    let levels_path =
+        std::path::PathBuf::from(format!("assets/levels/levels-{}.tsv", language.code()));
     if levels_path.is_file() {
         if let Ok(table) = LevelTable::from_path(&levels_path) {
             tracing::info!(path = %levels_path.display(), "等级表已加载");
@@ -489,6 +492,9 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         Some(layout) => engine.set_shuangpin_layout(Some(layout)),
         None => engine.set_shuangpin(scheme.shuangpin()),
     }
+    engine.set_shuangpin_full_pinyin(
+        args.shuangpin_full_pinyin || config.general.shuangpin_full_pinyin,
+    );
     engine.set_zhuyin_mode(scheme == Scheme::Zhuyin);
     engine.set_nine_key(args.nine_key);
     // 拼音侧关掉且形码开着才是「只用形码」；两边都关着时留拼音兜底

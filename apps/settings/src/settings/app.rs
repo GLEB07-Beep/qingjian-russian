@@ -8,6 +8,7 @@ use bamboo_slip::{App, FamilyList, FamilyTable, Key, RenderError, TextPainter, U
 
 use super::{SIZES, Settings};
 
+use crate::i18n::tr;
 use crate::jobs::model_download::Pack;
 use crate::library::{self, Library};
 use crate::message::{FieldId, Message, Popup, SizeKind};
@@ -35,11 +36,15 @@ impl App for Settings {
         if !matches!(
             message,
             Message::Run(_)
+                | Message::ImportConfig
+                | Message::ExportConfig
                 | Message::TestCloud
                 | Message::CheckUpdate
                 | Message::DownloadModel(_)
                 | Message::Import(_)
                 | Message::VocabularyExport(_)
+                | Message::ImportPhrases
+                | Message::ExportPhrases
         ) {
             self.notice = None;
         }
@@ -69,6 +74,9 @@ impl App for Settings {
             Message::Record(shortcut) => self.recording = Some(shortcut),
             Message::StopRecording => self.recording = None,
             Message::Recorded(shortcut, press) => match shortcut.accept(&press, &self.config) {
+                Ok(value) if shortcut.taken(&value, &self.config) => {
+                    self.notice = Some((shortcut.title(), tr("shortcut.hotkey_taken").to_owned()));
+                }
                 Ok(value) => {
                     let (section, key) = shortcut.config_key();
                     self.write(section, key, value);
@@ -100,12 +108,18 @@ impl App for Settings {
                     });
                 }
             }
+            Message::ImportPhrases => self.import_phrases(),
+            Message::ExportPhrases => self.export_phrases(),
+            Message::ImportConfig => self.import_config(),
+            Message::ExportConfig => self.export_config(),
             Message::Import(kind) => {
                 match self
                     .import
                     .start(kind, self.code_target(), self.waker.clone())
                 {
-                    Ok(true) => self.notice = Some((kind.slot(), "正在导入…".to_owned())),
+                    Ok(true) => {
+                        self.notice = Some((kind.slot(), tr("common.importing").to_owned()))
+                    }
                     Ok(false) => {}
                     Err(error) => self.notice = Some((kind.slot(), error)),
                 }
@@ -157,7 +171,9 @@ impl App for Settings {
                     let started = self.update.start(&self.config.update, self.waker.clone());
                     self.notice = Some((
                         "update",
-                        started.err().unwrap_or_else(|| "正在检查…".to_owned()),
+                        started
+                            .err()
+                            .unwrap_or_else(|| tr("about.checking").to_owned()),
                     ));
                 }
             }
@@ -189,7 +205,7 @@ impl App for Settings {
                         .cloud_test
                         .start(&self.config.predict, self.waker.clone())
                     {
-                        Ok(()) => "正在测试…".to_owned(),
+                        Ok(()) => tr("cloud.testing").to_owned(),
                         Err(error) => error,
                     };
                     self.notice = Some(("cloud", text));
@@ -226,13 +242,16 @@ impl App for Settings {
             }
             Message::Run(action) => {
                 // 清空要点两下：第一下只是把按钮换成确认
-                if action == Action::ClearInputLog && armed != Some(action) {
+                if matches!(action, Action::ClearInputLog | Action::ClearClipboard)
+                    && armed != Some(action)
+                {
                     self.armed = Some(action);
                     self.notice = None;
                 } else {
                     self.notice = action.run(&self.path).map(|text| (action.slot(), text));
                 }
             }
+            Message::ExcludeClipboardApp => self.exclude_clipboard_app(),
             Message::ToggleSources => self.sources_open = !self.sources_open,
             Message::StatsCloud(cloud) => self.stats_cloud = cloud,
             Message::Search(edit) => {

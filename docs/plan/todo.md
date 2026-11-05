@@ -126,8 +126,10 @@
   - [~] **⑤ 任务栏点中/英反同步**（★☆☆ / 低 / 0.5 天）：**代码完成，待真机测**（2026-09-11）。
     激活时对转换模式 compartment 挂 `ITfCompartmentEventSink`（`com/conversion.rs`），`OnChange` 读回 `NATIVE` 位、与当前模式不同才翻转
     （防回环），顺带刷指示器 + 上报 Server 让悬浮状态条也同步。纯 DLL 改动、无新协议。
-  - [~] **符号面板**：代码完成，待真机测（2026-10-13）。这一版原生画（Direct2D，彩色 emoji），下一版换 qingjian-render；
+  - [~] **符号面板**：代码完成，待真机测（2026-10-13）。2026-11-04 起两端都由 qingjian-render 画（主题 `panel` 一节），待真机验；
     按键与鼠标同 macOS，入口在悬浮状态条「符」格与托盘中 / 英图标的右键菜单。
+    2026-11-04 加「翻译」组（两端，Core `panel/translate`）：框里打一句、停键后译文进 preedit、回车上屏，`[shortcut] translate_panel` 快捷键，
+    同时删掉 Windows 的整句候选翻译（`[predict] sentence_translation` 不再认）；待真机验，Windows 上还要看轮询补写 preedit 在各应用里稳不稳。
   - [ ] 发版：换 **Certum 开源代码签名证书**重签（开发全程自签 + 本机受信任根，见 `installer/sign-local.ps1`）、
     `windows-v<版本>` 标签与 CI。
   - [ ] **本地整句模型上 Windows**：Server 已接（`dispatch/rescore/`，CPU 推理，设置「云服务」页有开关，安装包带 `data\model`），待真机验：每次重排的耗时（前文 + 几条路径一次前向，CPU 上可能几十到一百多毫秒，超了就缩前文长度）、模型加载时间；
@@ -145,6 +147,7 @@
   - ~~安装脚本按已装框架分支安装、Server 的启动策略~~：`install.sh --frontend auto` 已做，systemd 用户单元 `qingjian-server.service` 随装（`--enable-service` 顺手 enable），两个前端共用一个 Server
   - `[general] preedit` 三档在 IBus 面板下逐个真机验（它的面板能力比 fcitx5 弱），坑见 [notes/linux-bringup.md](../notes/linux-bringup.md)
 - [ ] 安卓设置里加「拼写纠错」开关（`[general] spelling_correction`，2026-10-26 桌面三平台已接；安卓引擎缺省开着，Kotlin 设置页与 `InputOptions` 还没传这一项）
+- [ ] 安卓的自定义短语与设置导入导出（#746）：桌面设置程序已能导入导出短语（与配置文件同一写法的 TOML）与设置（「高级」页），安卓的短语另存在 `PhraseBook`，要在安卓设置里加同样的导入导出、读写同一种文件，两边才能互相搬
 - [ ] 设置项的平台缺口（设置程序 `apps/settings/src/support/` 表里标「待实现」的项，输入法接上之前设置里不显示；测试逐条对照这里）：
   - [ ] 辅码：Linux
   - [ ] 形码与自定义方案：Linux
@@ -152,15 +155,20 @@
   - [ ] 按应用记住中英模式：macOS、Linux
   - [ ] 中文与英文、数字之间自动加空格：Linux
   - [ ] 横排时 ↑ / ↓ 展开成多行：Linux
+  - [ ] 横排时翻页键展开成多行：Linux
+  - [ ] 上屏键自定义：macOS
   - [ ] 额外翻页键：Linux
   - [ ] 高亮移动键：Linux
+  - [ ] Emacs 风格候选键：Windows、Linux
   - [ ] Ctrl + . 切换全半角标点：Linux
   - [ ] Ctrl + Shift + F 切换简繁输出：macOS、Linux
   - [ ] 双拼键位提示：Linux
   - [ ] 拼音行显示声调：Linux
   - [ ] 实验功能（知意、含章·通变）：Linux
+  - [ ] 青简剪贴板：Linux
   - [ ] 小键盘数字：macOS、Linux
   - [ ] 双拼候选窗显示按键：Linux
+- [ ] 剪贴板局域网同步：Linux；扫码配对、Android 全屏霓虹灯、蓝牙兜底
 
 ## 四、其他输入方案
 

@@ -3,6 +3,7 @@
 //! 一个模板节点可能产出零个（条件不成立、绑定为空）或多个（`repeat`）场景节点，所以都往 `out` 里推。
 
 mod cell;
+mod clip;
 mod context;
 mod frame;
 mod layout_style;
@@ -23,6 +24,7 @@ use bamboo_slip::{Effect, Scene, Visual};
 use bamboo_slip::{TextPainter, TextStyle};
 
 use context::Context;
+pub(super) use frame::resolve_fill;
 
 pub(super) struct Builder<'a> {
     pub(super) scene: &'a mut Scene,
@@ -47,6 +49,9 @@ pub(super) struct Builder<'a> {
     /// 写了 `action` 的节点（点中的目标，节点）。
     pub(super) action_nodes: Vec<(HitTarget, NodeId)>,
 
+    /// 拼音行的节点与各字之间那道缝离行首的 x（像素），排版后换成 [`super::PreeditHit`]。
+    pub(super) preedit_node: Option<(NodeId, Vec<f32>)>,
+
     /// 壳在窗口底下垫了系统材质：根节点的底色换成这个着色（`None` 不着色）、不画投影。实例化根节点时取走。
     pub(super) material_root: Option<Option<ColorSpec>>,
 
@@ -63,7 +68,7 @@ impl Builder<'_> {
             Layout::Horizontal => &windows.horizontal,
             Layout::Strip => &windows.strip,
         };
-        self.root(spec, Context::new(frame))
+        self.root(spec, Context::new(&clip::shown(frame)))
     }
 
     /// 状态条的根节点（主题写了 `status.root`）：格子按 `cells` 展开，各格的盒子记在 [`Self::cell_nodes`]。
