@@ -106,6 +106,10 @@ Source: "{#Repo}\assets\emoji\emoji-zh.tsv";     DestDir: "{app}\assets\emoji"; 
 Source: "{#Repo}\assets\emoji\emoji-en.tsv";     DestDir: "{app}\assets\emoji";  Flags: ignoreversion
 Source: "{#Repo}\assets\levels\levels-en.tsv";   DestDir: "{app}\assets\levels"; Flags: ignoreversion
 Source: "{#Repo}\assets\levels\levels-ja.tsv";   DestDir: "{app}\assets\levels"; Flags: ignoreversion
+; 青简·俄语专版：俄语释义表与 ТРКИ 等级表随包。上游 data-v9 的数据包里没有 ru，
+; 所以走 assets\ 的随 git 资源（同 emoji / levels），Server 的 glossary_file 会按 assets/glossary 兜底。
+Source: "{#Repo}\assets\glossary\glossary-ru.tsv"; DestDir: "{app}\assets\glossary"; Flags: ignoreversion
+Source: "{#Repo}\assets\levels\levels-ru.tsv";     DestDir: "{app}\assets\levels";   Flags: ignoreversion
 ; 随包形码方案（五笔，见 assets/schemes/wubi86/README.md；极点 86 码表，Apache-2.0）。
 ; 走 assets\ 与 emoji / levels 一致，Server 的 `dispatch::code::find_bundled_schemes` 照同一个相对路径找，
 ; 开发布局（cargo run）也对得上
