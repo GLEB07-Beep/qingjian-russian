@@ -306,6 +306,21 @@ fn font_sizes_and_animations_parse_and_default() {
 }
 
 #[test]
+fn candidate_font_weight_rounds_to_hundreds_and_zero_follows_the_theme() {
+    let weight = |value: u16| {
+        let mut general = Config::default().general;
+        general.candidate_font_weight = value;
+        general.candidate_font_weight()
+    };
+    assert_eq!(weight(0), None);
+    assert_eq!(weight(500), Some(500));
+    assert_eq!(weight(449), Some(400));
+    assert_eq!(weight(880), Some(900));
+    assert_eq!(weight(99), None);
+    assert_eq!(weight(1000), None);
+}
+
+#[test]
 fn font_size_edits_ignore_echoed_theme_size() {
     let unset = FontSize::default();
     // 框里显示主题的 17，原样交回不写
@@ -347,4 +362,14 @@ fn manual_prediction_shortcut_round_trips() {
         toml::from_str::<Config>(&toml::to_string(&config).unwrap()).unwrap(),
         config
     );
+}
+
+/// 基础词库开关单独一项：旧配置没写 `base` 时开着，用户词库叫 base 也不影响它。
+#[test]
+fn base_dictionary_switch_is_separate_from_disabled_files() {
+    let config: Config = toml::from_str("[dictionaries]\ndisabled = [\"base\"]\n").unwrap();
+    assert!(config.dictionaries.base);
+    assert!(!config.dictionaries.is_enabled("base"));
+    let config: Config = toml::from_str("[dictionaries]\nbase = false\n").unwrap();
+    assert!(!config.dictionaries.base);
 }

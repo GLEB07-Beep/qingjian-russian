@@ -1,5 +1,6 @@
 mod appearance;
 mod apps;
+mod auto_phrase;
 mod aux_code;
 mod candidate_renderer;
 mod clipboard;
@@ -47,6 +48,7 @@ pub use apps::{
     AppsConfig, DEFAULT_ENGLISH_CANDIDATES_ON, DEFAULT_ENGLISH_CANDIDATES_ON_LINUX,
     DEFAULT_ENGLISH_CANDIDATES_ON_MACOS, DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS,
 };
+pub use auto_phrase::AutoPhraseConfig;
 pub use aux_code::AuxCodeConfig;
 pub use candidate_renderer::CandidateRenderer;
 pub use clipboard::{
@@ -89,6 +91,8 @@ pub use update::{UpdateChannel, UpdateConfig};
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    /// 五笔连续组词的开关与最大词长，不改变拼音、双拼的学习规则。
+    pub auto_phrase: AutoPhraseConfig,
     /// 常规：学习语言、每页候选数、翻页键、外观。
     pub general: GeneralConfig,
 
@@ -199,6 +203,8 @@ switch_mode = []
 # 任意修饰键组合（option / shift / control / command 用 + 连），偏好设置里点按钮录制；别用 control+数字（系统切桌面）和 command+数字（应用切标签页）
 translation = "option"
 translation_second = "shift+option"
+# macOS：回车优先上屏高亮候选的第一条非中文译词；无可用译词时仍原样上屏，空格不变
+enter_translation = false
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 # 修饰键 + 一个字母或数字，任意组合；避开 ⌘T 这类应用常用键
 translate_selection = "control+option+t"
@@ -269,6 +275,8 @@ horizontal_grid = false
 # 横排时翻页键（主翻页键、额外翻页键、PageUp / PageDown、Tab）也像 ↓ 一样展开成矩阵并换行，展开后一次翻一屏。
 # 缺省 false：翻页键照旧整页翻。macOS 与 Windows 用
 grid_page_keys = false
+# 竖排的候选窗口放在光标上方时（下方放不下）倒着排，1 在最下面、紧挨输入行；缺省关。只有 Windows 用
+vertical_reverse_above = false
 # 候选窗口由谁绘制：qingjian 青简渲染器（各平台一致，主题走它）/ system 系统原生绘制（渲染器有问题时的退路）
 renderer = "qingjian"
 # 候选窗口字体（字族名，如 "LXGW WenKai"）；空为系统字体。只对青简渲染器生效，没装这个字体时自动回到系统字体
@@ -276,6 +284,8 @@ font = ""
 # 候选字、译文的字号（点），盖过主题；0 用主题的。只对青简渲染器生效
 candidate_font_size = 0
 annotation_font_size = 0
+# 候选字的字重（粗细），100–900（400 常规、500 中等、700 粗体），盖过主题；0 用主题的。只对青简渲染器生效
+candidate_font_weight = 0
 # 候选窗口的过渡动画（高亮滑动、主题里的循环动画）；false 时直接跳到位，与系统「减弱动态效果」一样
 animations = true
 # 组句中的拼音显示在哪：both 行内和候选窗口 / inline 只在行内 / window 只在候选窗口（应用里不放 marked text）
@@ -296,6 +306,8 @@ english_in_chinese = true
 english_max_in_chinese = 4
 # 有中文候选时英文最高排到第几位，1–9；1 为不限制，没有中文候选时英文照旧第一
 english_min_position = 1
+# 英文候选旁显示音标（cargo /ˈkɑrɡoʊ/）；只对英文候选生效，中文候选不受影响。没有音标的词不显示、也不出错
+show_english_pronunciation = false
 # 候选后面一次最多配几个 emoji（kaixin → 开心 😄），0–3；0 时候选里只有字词
 emoji = 3
 # 候选后面一次最多配几个颜文字（ku → 哭 (T_T)），0–3
@@ -322,6 +334,12 @@ remember_mode_per_app = false
 full_width_punctuation = true
 # 英文模式下的同一件事，中英各记一份，状态条切的是当前模式那份；只有 Windows 用
 english_full_width_punctuation = false
+# 敲左括号、左引号、左书名号时连右半边一起补上，光标停在中间；紧接着敲右半边跳过补上的那个，刚补完就退格两个一起删。
+# 中文与日文模式一份（缺省开），英文模式一份（缺省关：代码编辑器自己会补）。Windows 与 Android 用
+pair_punctuation = true
+english_pair_punctuation = false
+# 中文标点开着也保持半角的符号，几个连写；比如写 "`" 让 ` 键出反引号而不是间隔号 ·。缺省空
+half_width_symbols = ""
 # 组句中敲会转全角的标点（, . ? ! 等，翻页键除外）先把高亮候选上屏、再补该标点（nihao, 一气打完「你好，」）；
 # 缺省 false：标点进英文直输段，与以前一致
 punct_commits = false
@@ -367,6 +385,12 @@ system_text_replacements = true
 # weight = 10       # 权重：1–999，可以相同，相同的按文件里的先后
 # enabled = true    # 是否启用
 
+[auto_phrase]
+# 五笔连续上屏首次即组词；不影响拼音和双拼的学习规则，关闭不删除已有词
+enabled = true
+# 五笔组词最大汉字数（2～10），不改变编码长度；学习总开关和私密输入优先
+max_chars = 4
+
 [shortcut]
 # 呼出剪贴板面板（实验功能，要开着 [clipboard] enabled）；至少两个修饰键加字母、数字或句号。
 # 缺省 Windows 是 "ctrl+alt+v"，macOS 是 "cmd+shift+v"
@@ -375,6 +399,10 @@ system_text_replacements = true
 toggle_punctuation = ""
 # Windows：在简体与上次用的繁体字形之间切换；空串禁用，可设为 "ctrl+shift+f" 或其他修饰键加字母、数字
 toggle_traditional = ""
+# Windows：组句中只看单字，再按一次恢复，上屏完自动回到正常候选；只在打字时拿走这个组合。空串禁用
+single_chars = "ctrl+d"
+# Windows：组句中按词跳，首选整句的第一个词先定下来、候选换成下一个词的；只在打字时拿走这个组合。空串禁用
+next_word = "ctrl+v"
 # Windows：主翻页键之外同时启用的键对，可多选，如 ["[]", ",.", "-="]
 extra_page_keys = []
 # 前缀模式键，只能是 v / u / i 之一且互不相同（这三个字母不是任何拼音音节的开头）
@@ -407,16 +435,21 @@ l_r = false
 an_ang = false
 en_eng = false
 in_ing = false
+eng_ong = false
+# 自己加的规则，每条「音=音」：两边都是声母（"zh=j"）、都是韵母（"ian=iang"）或都是完整音节（"fa=hua"）。
+custom = []
+# custom 里暂时关掉的那些，删掉就重新开。
+custom_off = []
 
 "#,
     template_apps!(),
     r#"
 [dictionaries]
-# 随包的领域词库（法律 / 医学 / 地名 / 成语 / 诗词 / IT / 财经 / 饮食 / 动物 / 汽车 / 历史人物），列在这里的才加载；
-# 名字是文件名：animals automotive finance food historical_figures idioms it_computing law medicine places poetry_lines。
-# 偏好设置「词库」页可以勾选
+# 随包的领域词库（现在只有成语 idioms），列在这里的才加载；别的领域词库在偏好设置「词库 → 下载」里装
 domains = ["idioms"]
-# 自己导入的词库：放在配置同目录 dicts/ 下的 .qj 文件都会加载，这里列出要关掉的（文件名，不含扩展名）
+# 随包基础词库：false 时只出单字，词全靠导入、下载的词库
+base = true
+# 要关掉的词库：自己导入、下载的，按文件名（不含扩展名）
 disabled = []
 
 [aux_code]
@@ -501,99 +534,6 @@ impl Config {
     /// 用户给形码方案 `id` 改的按键规则；没改过时全是 `None`。
     pub fn code_rules(&self, id: &str) -> CodeRules {
         self.code.get(id).copied().unwrap_or_default()
-    }
-
-    /// 保存自定义短语列表，冲突时不修改文件。
-    pub fn set_custom_phrases(
-        path: &Path,
-        phrases: &[qingjian_core::CustomPhrase],
-    ) -> Result<(), String> {
-        qingjian_core::custom_phrase::validate_phrases(phrases)?;
-        let source = match std::fs::read_to_string(path) {
-            Ok(s) => s,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => TEMPLATE.to_owned(),
-            Err(e) => return Err(e.to_string()),
-        };
-        let mut document: DocumentMut = source.parse::<DocumentMut>().map_err(|e| e.to_string())?;
-        let existing = document
-            .get("custom_phrases")
-            .and_then(toml_edit::Item::as_array_of_tables)
-            .cloned()
-            .unwrap_or_default();
-        // 读配置时跳过的条目界面上看不到，保存时原样留在文件里，等用户自己改
-        let checked = phrases::check(existing.iter().map(|table| {
-            toml::from_str::<qingjian_core::CustomPhrase>(&table.to_string())
-                .map_err(|e| e.message().to_owned())
-        }));
-        let mut old = toml_edit::ArrayOfTables::new();
-        let mut skipped = Vec::new();
-        for (table, item) in existing.iter().zip(&checked) {
-            if item.is_ok() {
-                old.push(table.clone());
-            } else {
-                skipped.push(table.clone());
-            }
-        }
-        let mut used = std::collections::BTreeSet::new();
-        // 先按输入码和文本匹配，重排或删除时注释跟随原规则。
-        let mut matches: Vec<_> = phrases
-            .iter()
-            .map(|p| {
-                let found = old
-                    .iter()
-                    .enumerate()
-                    .find(|(_, t)| {
-                        t.get("code").and_then(toml_edit::Item::as_str) == Some(p.code.as_str())
-                            && t.get("text").and_then(toml_edit::Item::as_str)
-                                == Some(p.text.as_str())
-                    })
-                    .map(|(i, _)| i);
-                if let Some(i) = found {
-                    used.insert(i);
-                }
-                found
-            })
-            .collect();
-        // 等长列表中修改了输入码或文本的条目，沿用其未被占用的原表。
-        if old.len() == phrases.len() {
-            for (i, matched) in matches.iter_mut().enumerate() {
-                if matched.is_none() && used.insert(i) {
-                    *matched = Some(i);
-                }
-            }
-        }
-        let mut tables = toml_edit::ArrayOfTables::new();
-        for (p, matched) in phrases.iter().zip(matches) {
-            let mut t = matched
-                .and_then(|i| old.get(i))
-                .cloned()
-                .unwrap_or_default();
-            if t.contains_key("position") {
-                t = phrases::position_to_weight(&t);
-            }
-            for (key, mut value) in [
-                ("code", toml_edit::Value::from(p.code.as_str())),
-                ("text", toml_edit::Value::from(p.text.as_str())),
-                ("weight", toml_edit::Value::from(i64::from(p.weight))),
-                ("enabled", toml_edit::Value::from(p.enabled)),
-            ] {
-                if let Some(previous) = t.get(key).and_then(toml_edit::Item::as_value) {
-                    if previous.to_string() == value.to_string() {
-                        continue;
-                    }
-                    *value.decor_mut() = previous.decor().clone();
-                }
-                t[key] = toml_edit::Item::Value(value);
-            }
-            // 序列化按文档位置排序；统一锚点后，同组条目使用本次列表顺序。
-            t.set_position(old.iter().filter_map(toml_edit::Table::position).min());
-            tables.push(t);
-        }
-        for table in skipped {
-            tables.push(table);
-        }
-        document["custom_phrases"] = toml_edit::Item::ArrayOfTables(tables);
-        write_file(path, &document.to_string()).map_err(|e| e.to_string())
     }
 
     /// 读配置。文件不存在按默认值；存在但解析失败报错，不要静默吞掉用户的笔误。

@@ -128,13 +128,9 @@ fn splitting_a_buffer_into_a_word_and_a_sentence_forms_the_whole_phrase() {
             engine.learner().choice_weight("xiangkaifaxian", &phrase),
             round
         );
-        // 第二次：整段合成 想开X先；接缝处不造两字词
+        // 第一次就整段合成 想开X先；接缝处不造两字词
         let words = shared.lock().unwrap().0.clone();
-        if round == 1 {
-            assert!(words.is_empty(), "{words:?}");
-        } else {
-            assert_eq!(words, [phrase.clone()]);
-        }
+        assert_eq!(words, [phrase.clone()], "round {round}");
         engine.note_passthrough('\n');
     }
     // 第三次整段打出来：合成词直接排第一
@@ -197,6 +193,7 @@ fn missing_glosses_are_requested_on_commit_and_learned_when_they_arrive() {
             reading: None,
             fresh: false,
             level: None,
+            pronunciation: None,
         }],
     );
     ready.lock().unwrap().push(FilledGloss {
@@ -420,7 +417,7 @@ fn commits_feed_the_personal_bigram_and_form_words() {
     };
     let mut engine = engine().with_learner(Box::new(learner));
 
-    // 整句上屏：按路径上的词记转移，第一个词在句首
+    // 整句上屏：按路径上的词记转移，第一个词在句首；带单字的整句（想 + 开发）不记成用户词
     engine.set_input("xiangkaifa");
     let sentence = engine.query().unwrap().candidates.items[0].clone();
     assert_eq!(sentence.kind, CandidateKind::Sentence);
@@ -431,7 +428,7 @@ fn commits_feed_the_personal_bigram_and_form_words() {
         assert_eq!(ngram.pair(Some("想"), "开发"), 1);
     }
 
-    // 标点断句；之后连续从同一段拼音里选 开发 + 先：第一次只记转移，第二次自动造词 开发先
+    // 标点断句；之后连续从同一段拼音里选 开发 + 先：第一次就自动造词 开发先
     engine.punctuate('，');
     let select = |engine: &mut Engine, text: &str| {
         let candidate = engine
@@ -460,7 +457,7 @@ fn commits_feed_the_personal_bigram_and_form_words() {
             learned.1.pair(Some("开发"), "先"),
             round * EXPLICIT_TRANSITION_WEIGHT
         );
-        assert_eq!(learned.0.len(), usize::from(round == 2), "round {round}");
+        assert_eq!(learned.0.len(), 1, "round {round}");
         engine.note_passthrough('\n');
     }
     assert_eq!(shared.lock().unwrap().0, ["开发先"]);
@@ -498,6 +495,7 @@ fn committing_the_translation_learns_the_word_and_returns_the_gloss() {
                         reading: Some("かいはつする".into()),
                         fresh: false,
                         level: None,
+                        pronunciation: None,
                     }],
                 )
             })
@@ -744,6 +742,7 @@ fn annotate_populates_level_badge_from_vocabulary_tracker() {
                         reading: None,
                         fresh: false,
                         level: None,
+                        pronunciation: None,
                     }],
                 )),
                 "女孩" => Some(Translation::new(
@@ -754,6 +753,7 @@ fn annotate_populates_level_badge_from_vocabulary_tracker() {
                         reading: None,
                         fresh: false,
                         level: None,
+                        pronunciation: None,
                     }],
                 )),
                 "未知" => Some(Translation::new(
@@ -764,6 +764,7 @@ fn annotate_populates_level_badge_from_vocabulary_tracker() {
                         reading: None,
                         fresh: false,
                         level: None,
+                        pronunciation: None,
                     }],
                 )),
                 _ => None,

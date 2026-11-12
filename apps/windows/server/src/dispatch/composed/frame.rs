@@ -1,7 +1,9 @@
 //! 按组句状态生成帧：给 DLL 的（老协议降级、输入框显示原始按键）与自绘窗的，符号面板翻译组的 preedit 是译文。
 
 use qingjian_core::candidate::arrows::Focus;
-use qingjian_core::{Candidate, CandidateKind, CandidateList, Cell, Engine, Grid, Query};
+use qingjian_core::{
+    Candidate, CandidateKind, CandidateList, Cell, Engine, Grid, Query, differs_from_lead,
+};
 use qingjian_platform::PreeditMode;
 use qingjian_platform::protocol::{Frame, PROTOCOL_VERSION, PreeditKind, PreeditSegment};
 
@@ -122,10 +124,12 @@ impl Router {
                 appearance: self.config.appearance,
                 aux_code_show: false,
                 translation_pos: false,
+                english_reading_ipa: false,
                 sentence: None,
                 notice: None,
                 symbol_panel: false,
                 panel_text_box: false,
+                differs: Vec::new(),
             },
             Some(Composed::Raw { text, cursor }) => Frame {
                 preedit: vec![PreeditSegment {
@@ -145,10 +149,12 @@ impl Router {
                 appearance: self.config.appearance,
                 aux_code_show: self.config.aux_code_show,
                 translation_pos: self.config.translation_pos,
+                english_reading_ipa: self.config.show_english_pronunciation,
                 sentence: None,
                 notice: self.notice.clone(),
                 symbol_panel: false,
                 panel_text_box: false,
+                differs: Vec::new(),
             },
             Some(Composed::Candidates {
                 preedit,
@@ -206,6 +212,13 @@ impl Router {
                             0,
                         ),
                     };
+                let differs = match layout.candidate(0) {
+                    Some(lead) => items
+                        .iter()
+                        .map(|candidate| differs_from_lead(lead, candidate))
+                        .collect(),
+                    None => Vec::new(),
+                };
                 let mut candidates = CandidateList { items };
                 self.engine.annotate(&mut candidates);
                 Frame {
@@ -232,10 +245,12 @@ impl Router {
                     appearance: self.config.appearance,
                     aux_code_show: self.config.aux_code_show,
                     translation_pos: self.config.translation_pos,
+                    english_reading_ipa: self.config.show_english_pronunciation,
                     sentence: self.sentence.clone(),
                     notice: self.notice.clone(),
                     symbol_panel: false,
                     panel_text_box: false,
+                    differs,
                 }
             }
         }

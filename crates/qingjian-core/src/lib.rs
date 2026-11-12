@@ -11,6 +11,7 @@ pub mod candidate;
 pub mod chaizi;
 pub mod code_scheme;
 pub mod composition;
+pub mod contacts;
 pub mod correction;
 pub mod custom_phrase;
 pub mod email;
@@ -44,10 +45,11 @@ pub use calculation::{CalculationCompletion, calculation_completions, may_end_ca
 pub use candidate::{
     Candidate, CandidateKind, CandidateLayout, CandidateList, Cell, GRID_ROWS, Grid,
     LEARNING_LANGUAGE_OFF, Language, MAX_CELL_EMS, PartOfSpeech, Sense, Translation,
-    format_level_badge, learning_languages,
+    differs_from_lead, format_level_badge, learning_languages,
 };
 pub use code_scheme::CodeScheme;
 pub use composition::Composition;
+pub use contacts::{Contact, ContactBook};
 pub use correction::Correction;
 pub use email::{EmailCompletion, email_completions};
 pub use emoji::{EmojiTable, skin_tone_variants};
@@ -62,7 +64,7 @@ pub use engine::{
     SurroundingText, Timings, Translator, Usage, UsageMeter, UsageSummary, VocabularySummary,
     VocabularyTracker, Wake, book_scale, is_valid_aux_code_key,
 };
-pub use fuzzy::FuzzyRules;
+pub use fuzzy::{CustomRule, FuzzyRules};
 pub use history::{DEFAULT_FRESH_SECONDS, InputHistory};
 pub use japanese::RomajiComposer;
 pub use panel::{
@@ -70,7 +72,7 @@ pub use panel::{
     catalog_sections, common_items,
 };
 pub use parser::{ParseError, Segmentation};
-pub use punctuation::Punctuation;
+pub use punctuation::{PairEdit, Punctuation};
 pub use qingjian_dictionary as dictionary;
 pub use shuangpin::{Layout as ShuangpinLayout, Scheme as ShuangpinScheme};
 pub use swipe::{CornerDecoder, ShapeDecoder, SwipeDecoder, SwipeKey, SwipeLexicon, SwipePoint};

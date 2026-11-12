@@ -236,6 +236,7 @@ mod tests {
             reading: None,
             fresh: false,
             level: None,
+            pronunciation: None,
         };
         let mut candidates = CandidateList {
             items: vec![
