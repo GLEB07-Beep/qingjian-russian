@@ -22,11 +22,15 @@ pub enum Shortcut {
     CommitCandidate,
     /// 组句时原样上屏敲的字母的键。
     CommitRaw,
+    /// 组句时切换单字模式（只在组句时拿走）。
+    SingleChars,
+    /// 组句时按词跳（只在组句时拿走）。
+    NextWord,
 }
 
 impl Shortcut {
     #[cfg(test)]
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 11] = [
         Self::Translation,
         Self::TranslationSecond,
         Self::TranslateSelection,
@@ -36,6 +40,8 @@ impl Shortcut {
         Self::AuxCodeKey,
         Self::CommitCandidate,
         Self::CommitRaw,
+        Self::SingleChars,
+        Self::NextWord,
     ];
 
     pub fn title(self) -> &'static str {
@@ -49,6 +55,8 @@ impl Shortcut {
             Self::AuxCodeKey => tr("shortcut.aux_code_key"),
             Self::CommitCandidate => tr("shortcut.commit_candidate"),
             Self::CommitRaw => tr("shortcut.commit_raw"),
+            Self::SingleChars => tr("shortcut.single_chars"),
+            Self::NextWord => tr("shortcut.next_word"),
         }
     }
 
@@ -64,6 +72,8 @@ impl Shortcut {
             Self::AuxCodeKey => ("general", "aux_code_key"),
             Self::CommitCandidate => ("shortcut", "commit_candidate"),
             Self::CommitRaw => ("shortcut", "commit_raw"),
+            Self::SingleChars => ("shortcut", "single_chars"),
+            Self::NextWord => ("shortcut", "next_word"),
         }
     }
 
@@ -71,9 +81,12 @@ impl Shortcut {
     pub fn prompt(self) -> &'static str {
         match self {
             Self::Translation | Self::TranslationSecond => tr("shortcut.prompt_digit"),
-            Self::TranslateSelection | Self::Predict | Self::TranslatePanel | Self::Clipboard => {
-                tr("shortcut.prompt_combo")
-            }
+            Self::TranslateSelection
+            | Self::Predict
+            | Self::TranslatePanel
+            | Self::Clipboard
+            | Self::SingleChars
+            | Self::NextWord => tr("shortcut.prompt_combo"),
             Self::AuxCodeKey => tr("shortcut.prompt_symbol"),
             Self::CommitCandidate | Self::CommitRaw => tr("shortcut.prompt_commit"),
         }
@@ -93,6 +106,14 @@ impl Shortcut {
             Self::AuxCodeKey => config.general.aux_code_key().to_string(),
             Self::CommitCandidate => shortcut.commit_candidate.label(),
             Self::CommitRaw => shortcut.commit_raw.label(),
+            Self::SingleChars => combo_label(
+                shortcut
+                    .single_chars
+                    .unwrap_or(KeyCombo::SINGLE_CHARS_DEFAULT),
+            ),
+            Self::NextWord => {
+                combo_label(shortcut.next_word.unwrap_or(KeyCombo::NEXT_WORD_DEFAULT))
+            }
         }
     }
 
@@ -116,6 +137,14 @@ impl Shortcut {
             Self::Predict => config.shortcut.predict,
             Self::TranslatePanel => config.shortcut.translate_panel,
             Self::Clipboard => config.shortcut.clipboard,
+            Self::SingleChars => config
+                .shortcut
+                .single_chars
+                .unwrap_or(KeyCombo::SINGLE_CHARS_DEFAULT),
+            Self::NextWord => config
+                .shortcut
+                .next_word
+                .unwrap_or(KeyCombo::NEXT_WORD_DEFAULT),
             _ => config.shortcut.translate_selection,
         }
     }
@@ -218,6 +247,49 @@ impl Shortcut {
                     if other.combo(config) == combo {
                         return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
                     }
+                }
+                Ok(combo.key_string())
+            }
+            Self::SingleChars | Self::NextWord => {
+                let key = match &press.key {
+                    KeyCode::Character(text) => {
+                        single(text).filter(|key| key.is_ascii_alphanumeric())
+                    }
+                    _ => None,
+                }
+                .ok_or(tr("shortcut.need_combo"))?;
+                if modifiers.is_empty() {
+                    return Err(tr("shortcut.need_modifier").to_owned());
+                }
+                let combo = KeyCombo {
+                    modifiers,
+                    key: key.to_ascii_lowercase(),
+                };
+                for other in [
+                    Self::TranslateSelection,
+                    Self::Predict,
+                    Self::TranslatePanel,
+                    Self::Clipboard,
+                ] {
+                    if other.combo(config) == combo {
+                        return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
+                    }
+                }
+                // 两个都只在组句时拿走：单字模式与按词跳不能是同一个键
+                for other in [Self::SingleChars, Self::NextWord] {
+                    if other != self && other.combo(config) == combo {
+                        return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
+                    }
+                }
+                // 组句中「译词修饰键 + 数字」上屏译词
+                let (first, second) = config.shortcut.translation_keys();
+                if key.is_ascii_digit() && (modifiers == first || modifiers == second) {
+                    let other = if modifiers == first {
+                        Self::Translation
+                    } else {
+                        Self::TranslationSecond
+                    };
+                    return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
                 }
                 Ok(combo.key_string())
             }

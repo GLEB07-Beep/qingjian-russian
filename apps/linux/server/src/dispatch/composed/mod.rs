@@ -248,10 +248,12 @@ impl Router {
                 appearance: self.config.appearance,
                 aux_code_show: false,
                 translation_pos: self.config.translation_pos,
+                english_reading_ipa: false,
                 sentence: None,
                 notice: self.notice.clone(),
                 symbol_panel: false,
                 panel_text_box: false,
+                differs: Vec::new(),
             },
             Some(Composed::Candidates {
                 preedit,
@@ -304,10 +306,12 @@ impl Router {
                     appearance: self.config.appearance,
                     aux_code_show: false,
                     translation_pos: self.config.translation_pos,
+                    english_reading_ipa: false,
                     sentence: self.sentence.clone(),
                     notice: self.notice.clone(),
                     symbol_panel: false,
                     panel_text_box: false,
+                    differs: Vec::new(),
                 }
             }
         }

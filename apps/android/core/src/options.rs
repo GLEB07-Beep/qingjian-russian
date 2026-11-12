@@ -1,4 +1,4 @@
-//! 键盘设置里影响候选的几项：模糊音、中文标点全半角、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词留在组句里、拼写纠错、候选后面配几个 emoji / 颜文字 / 符号。Kotlin 按设置整份交过来。
+//! 键盘设置里影响候选的几项：模糊音、中文标点全半角、成对符号、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词留在组句里、拼写纠错、上屏后联想、候选后面配几个 emoji / 颜文字 / 符号。Kotlin 按设置整份交过来。
 
 use qingjian_core::{FuzzyRules, Language, TraditionalVariant};
 use serde::Deserialize;
@@ -12,6 +12,18 @@ pub struct InputOptions {
 
     /// 中文键盘的标点键出全角（，。）还是半角（,.）。
     pub full_width_punctuation: bool,
+
+    /// 中文与日文键盘敲左括号、左引号、左书名号时连右半边一起补上（PC 的 `[general] pair_punctuation`）。
+    #[serde(default = "default_true")]
+    pub pair_punctuation: bool,
+
+    /// 英文键盘的半角括号与双引号也成对（PC 的 `english_pair_punctuation`），缺省关。
+    #[serde(default)]
+    pub english_pair_punctuation: bool,
+
+    /// 屏蔽词：候选里含有其中任何一个就整条不出（对应 PC 配置的同名项）。
+    #[serde(default)]
+    pub blocked: Vec<String>,
 
     /// 打拼音时也给英文词。
     pub english_in_chinese: bool,
@@ -30,6 +42,12 @@ pub struct InputOptions {
     /// 学习输入习惯（PC 的 `[general] learning`）：关了不再记新的，已学的照常参与排序。
     #[serde(default = "default_true")]
     pub learning: bool,
+    /// 是否学习连续上屏的五笔新词，不改变拼音、双拼学习规则。
+    #[serde(default = "default_true")]
+    pub auto_phrase: bool,
+    /// 五笔连续组词的最大汉字数，默认 4，应用时限制在 2～10。
+    #[serde(default = "default_phrase_chars")]
+    pub auto_phrase_max_chars: usize,
 
     /// 打开的随包领域词库（文件名不含扩展名），同 PC 的 `[dictionaries] domains`；缺省只开成语。
     #[serde(default = "default_domains")]
@@ -46,6 +64,10 @@ pub struct InputOptions {
     /// 拼写纠错（PC 的 `[general] spelling_correction`）：关了拼音只按敲的原样与模糊音读。
     #[serde(default = "default_true")]
     pub spelling_correction: bool,
+
+    /// 中文词上屏后候选条接着给可能跟在后面的词（#861），点了直接上屏。
+    #[serde(default = "default_true")]
+    pub follow_ups: bool,
 
     /// 候选后面一次最多配几个 emoji（0–3，0 不配），同 PC 的 `[general] emoji`。
     #[serde(default = "default_emoji")]
@@ -101,6 +123,10 @@ fn default_true() -> bool {
     true
 }
 
+fn default_phrase_chars() -> usize {
+    4
+}
+
 fn default_domains() -> Vec<String> {
     DEFAULT_DOMAINS.map(str::to_owned).to_vec()
 }
@@ -150,6 +176,8 @@ mod tests {
             r#""full_width_punctuation":true,"english_in_chinese":true,"chinese_first":false"#;
         let options: InputOptions = serde_json::from_str(&format!("{{{base}}}")).unwrap();
         assert_eq!((options.emoji, options.kaomoji, options.symbols), (3, 1, 1));
+        // 成对符号缺省同 PC：中文开、英文关
+        assert!(options.pair_punctuation && !options.english_pair_punctuation);
         let options: InputOptions =
             serde_json::from_str(&format!(r#"{{{base},"emoji":0,"kaomoji":0,"symbols":2}}"#))
                 .unwrap();

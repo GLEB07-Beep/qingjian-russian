@@ -22,7 +22,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.3.3-ru.1"
+version = "0.3.4-ru.1"
 edition = "2024"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/qingjian-team/qingjian"

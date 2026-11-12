@@ -185,12 +185,18 @@ impl Engine {
             pinyin,
             letters: pinyin_source.replace('\'', ""),
             syllables,
+            // 通讯录里的名字不发给云端
             candidates: candidates
                 .iter()
+                .filter(|c| !self.is_contact(&c.text))
                 .take(PREDICTION_CANDIDATE_HINTS)
                 .map(|c| c.text.clone())
                 .collect(),
-            guess: guess.clone(),
+            guess: if self.mentions_contact(&guess) {
+                String::new()
+            } else {
+                guess.clone()
+            },
             // 简拼（半数以上音节是缩写）不问词：模型按声母凑出来的大多是生造词（复合语气、符号映射），
             // 只问整句补全；问字模式的答案不受这条限制（答案本来就对不上问题的拼音）。
             max_items: if abbreviated && !question {
@@ -467,6 +473,7 @@ impl Engine {
     /// 但按语言模型把它切成词（[`sentence::segment_text`]）逐条记进个人 n-gram，与选整句候选一样；
     /// 标点处断句，句尾是标点时之后的词按句首记。整句退格删光再重打时这些转移一并退回。
     pub fn accept_prediction(&mut self, text: &str) -> String {
+        self.chain.clear_code_words();
         // 壳送回来的是繁体那份：先换回简体，下面的学习、日志、n-gram 一律看简体
         let traditional_text = text.to_owned();
         let restored = self.traditional.restore(text);

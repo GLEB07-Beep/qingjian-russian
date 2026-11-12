@@ -259,6 +259,7 @@ impl Glossary {
                     part_of_speech: pos.parse::<PartOfSpeech>().ok(),
                     text: text.to_owned(),
                     reading: (!reading.is_empty()).then(|| reading.to_owned()),
+                    pronunciation: None,
                     fresh: false,
                     level: None,
                 })
@@ -284,6 +285,7 @@ pub(crate) fn parse_sense(field: &str) -> Sense {
             part_of_speech: Some(part_of_speech),
             text: rest.trim().to_owned(),
             reading,
+            pronunciation: None,
             fresh: false,
             level: None,
         };
@@ -292,6 +294,7 @@ pub(crate) fn parse_sense(field: &str) -> Sense {
         part_of_speech: None,
         text: field.to_owned(),
         reading,
+        pronunciation: None,
         fresh: false,
         level: None,
     }

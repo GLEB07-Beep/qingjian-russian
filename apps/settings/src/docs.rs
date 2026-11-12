@@ -10,6 +10,18 @@ const DOCS_URL: &str = "https://qingjian.app/docs";
 const LINKS: &[(PageId, &str, &str, &str)] = &[
     (
         PageId::Input,
+        "input.auto_phrase",
+        "personalize/dictionaries",
+        "自动组词",
+    ),
+    (
+        PageId::Input,
+        "input.auto_phrase_length",
+        "personalize/dictionaries",
+        "自动组词",
+    ),
+    (
+        PageId::Input,
         "input.pinyin",
         "input/fuzzy-and-shuangpin",
         "选择方案",
@@ -196,6 +208,12 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "shortcut.commit_raw",
         "personalize/keys-settings",
         "上屏键（Windows、Linux）",
+    ),
+    (
+        PageId::Shortcuts,
+        "shortcuts.enter_translation",
+        "personalize/keys-settings",
+        "回车优先上屏译词（macOS）",
     ),
     (
         PageId::Shortcuts,

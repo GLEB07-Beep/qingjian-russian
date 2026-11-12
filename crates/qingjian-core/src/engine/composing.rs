@@ -17,11 +17,7 @@ impl Engine {
     pub fn punctuate(&mut self, c: char) -> Option<&'static str> {
         // 组句外敲的标点：辅码态到此结束（壳已经把高亮候选上屏了）
         self.aux_code = None;
-        let converted = if self.full_width_punctuation {
-            self.punctuation.convert(c)
-        } else {
-            None
-        };
+        let converted = self.full_width_punctuation_of(c);
         if let Some(text) = converted {
             self.note_text(text);
             self.remember_commit(LastCommit::plain(text));
@@ -32,6 +28,15 @@ impl Engine {
         }
         self.chain.reset();
         converted
+    }
+
+    /// 中文标点开着、`c` 又没被指定保持半角时转成的全角标点。
+    pub(super) fn full_width_punctuation_of(&mut self, c: char) -> Option<&'static str> {
+        if self.full_width_punctuation && !self.half_width_symbols.contains(&c) {
+            self.punctuation.convert(c)
+        } else {
+            None
+        }
     }
 
     /// 壳把字符原样透传给应用后告知，用于「数字后的点保持半角」，也记入输入历史与输入日志（攒成一条 `passthrough`）。
@@ -60,6 +65,7 @@ impl Engine {
     /// 上次断开之后有过上屏才往输入日志记一条 `break`，连着失焦几次只记一次。
     pub fn break_chain(&mut self) {
         self.chain.reset();
+        self.punctuation.pairs().clear();
         self.recent_commits.clear();
         self.flush_passthrough();
         self.finish_examples();
@@ -133,6 +139,7 @@ impl Engine {
 
     /// 组句里要删东西了：第一次删之前把缓冲区留个快照，上屏时对比最终键串，不同就是一次重打（`retype`）。
     fn note_edit(&mut self) {
+        self.chain.clear_code_words();
         self.typing.edit(Instant::now());
         if self.retype_snapshot.is_none() && !self.composition.is_empty() {
             self.retype_snapshot = Some(self.composition.text().to_owned());
@@ -143,6 +150,7 @@ impl Engine {
     /// 接着重打那段拼音选了别的词，那次记的学习就退回去（见 `apply_retraction`）。
     /// 删得比记着的几次上屏加起来还多说明在改别处，全忘掉。
     pub fn note_backspace(&mut self) {
+        self.chain.clear_code_words();
         let Some(commit) = self
             .recent_commits
             .iter_mut()
@@ -175,7 +183,15 @@ impl Engine {
         &self.composition
     }
 
+    /// 单字模式开关（#848）：组句中候选只留单字，再切一次恢复；只管这一段组句，上屏完或清空就回到正常候选。
+    /// 没在组句时不起作用，返回 `false`，壳把按键交还应用。切完要重新 [`Self::query`]。
+    pub fn toggle_single_chars(&mut self) -> bool {
+        self.composition.toggle_single_chars()
+    }
+
     pub fn push(&mut self, c: char) {
+        // 打了新键：退回成数字的音节不再偏向用户之前选的写法
+        self.nine_key_unpinned = None;
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
             self.composition_started = Some(Instant::now());
@@ -221,7 +237,19 @@ impl Engine {
             return true;
         }
         self.note_edit();
-        self.composition.backspace()
+        // 九宫格：末尾是拼音列选定的音节就整个退回成数字，先撤选择、再删键
+        if self.unpin_nine_key() {
+            return true;
+        }
+        let before = self.nine_key.then(|| self.composition.text().to_owned());
+        let removed = self.composition.backspace();
+        if removed {
+            if let Some(before) = before {
+                self.follow_nine_key_deletion(&before);
+            }
+            self.drop_pin_separator();
+        }
+        removed
     }
 
     pub fn clear(&mut self) {
