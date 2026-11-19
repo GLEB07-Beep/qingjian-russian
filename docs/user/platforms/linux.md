@@ -40,10 +40,10 @@ sudo apt install python3 fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5
 
 ```sh
 # Debian / Ubuntu
-sudo apt install ./qingjian_<版本>_amd64.deb ./qingjian-fcitx5_<版本>_amd64.deb
+sudo apt install ./qingjian-<版本>-linux-x86_64.deb ./qingjian-fcitx5-<版本>-linux-x86_64.deb
 
 # Fedora 42 及以后
-sudo dnf install ./qingjian-<版本>-1.fc42.x86_64.rpm ./qingjian-fcitx5-<版本>-1.fc42.x86_64.rpm
+sudo dnf install ./qingjian-<版本>-linux-x86_64.rpm ./qingjian-fcitx5-<版本>-linux-x86_64.rpm
 ```
 
 - `qingjian` 在 Debian 12、Ubuntu 22.04 及以后都能装；`qingjian-fcitx5` 要较新的 Fcitx5，只有 Debian 13、Ubuntu 25.04、Fedora 42 及以后装得上，更早的系统请用 IBus 或源码安装。
@@ -59,11 +59,11 @@ sudo dnf install ./qingjian-<版本>-1.fc42.x86_64.rpm ./qingjian-fcitx5-<版本
 sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt6 fcitx5-config-qt
 ```
 
-从[下载页](https://qingjian.app/download)下载 `Qingjian-<版本>-x86_64.AppImage`，放到一个固定的位置（比如 `~/Applications`），然后：
+从[下载页](https://qingjian.app/download)下载 `qingjian-<版本>-linux-x86_64.AppImage`，放到一个固定的位置（比如 `~/Applications`），然后：
 
 ```sh
-chmod +x ~/Applications/Qingjian-*.AppImage
-~/Applications/Qingjian-*.AppImage install
+chmod +x ~/Applications/qingjian-*-linux-x86_64.AppImage
+~/Applications/qingjian-*-linux-x86_64.AppImage install
 ```
 
 也可以在文件管理器里给它加上执行权限后双击，第一次会自动完成安装并打开青简设置。
@@ -72,7 +72,7 @@ chmod +x ~/Applications/Qingjian-*.AppImage
 
 - **挪动或改名 AppImage 文件后**，再运行一次 `install`：自动启动与菜单项记的是它原来的位置。
 - **更新**：用新版本的文件替换旧文件（保持同一个路径和文件名最省事），注销重新登录或运行一次 `install`，然后重启 Fcitx5。
-- **卸载**：运行 `Qingjian-*.AppImage uninstall`，再重启 Fcitx5；之后可以删掉这个文件。配置、个人词库和学习数据会保留。
+- **卸载**：运行 `qingjian-*-linux-x86_64.AppImage uninstall`，再重启 Fcitx5；之后可以删掉这个文件。配置、个人词库和学习数据会保留。
 - 已经用源码安装或预编译包装过青简的，先卸载那一份再装 AppImage；两份同时装会互相顶替，安装时会提示。
 - 系统缺少 FUSE、提示无法挂载时，先运行 `export APPIMAGE_EXTRACT_AND_RUN=1` 再执行上面的命令。
 
@@ -167,7 +167,15 @@ apps/linux/scripts/install.sh --fcitx4
 - **整句补全**显示在候选面板下方的提示行，按 `Tab` 接受。
 - **IBus 下打字中按应用的快捷键**（带 `Ctrl` / `Alt` / `Super` 且青简不用的组合，如 `Ctrl + F` 打开搜索）：已敲的字母先原样上屏到当前输入框，再交给应用。打字中用鼠标点到别的输入框时，X11 应用里拼音留在原来的框；GNOME Wayland 上没上屏的拼音会丢掉，先按 `Enter` 或选词再换框。
 - **私密输入**：Fcitx5 识别为私密的输入框里可以打字，但不记录、不学习、不发送；密码框直接交还应用。这依赖应用正确标记，GTK4 应用的私密提示目前传不过来。Fcitx4 只认密码框标记，其他私密输入框认不出；不想留下记录时，可关掉学习与输入日志，见 [直接编辑配置文件](../advanced/config-file.md#Linux)。
-- **暂不支持**：五笔与自制方案、辅码、符号面板、额外翻页键与高亮移动键、标点快捷键、中西文自动空格、拼音带声调。
+- **暂不支持**：辅码与字根提示、符号面板、额外翻页键与高亮移动键、标点快捷键、中西文自动空格、拼音带声调。
+
+## 五笔与自制方案
+
+从应用菜单打开「青简设置」，或运行 `~/.local/bin/qingjian-settings`。Fcitx5 用户也可以在 Fcitx5 配置工具中选中「青简」，点击配置图标直接打开青简设置。在「输入 → 形码」选择「五笔（86）」；只用五笔时把「拼音」设为「关」，保留拼音则是五笔拼音混输。无需重启服务。
+
+较旧的 Fcitx5 配置工具（例如 Ubuntu 24.04 附带的 `fcitx5-config-qt 5.1.4`）会先显示一个带配置按钮的窗口，需再点一次才能打开青简设置。升级到支持直接启动外部设置的新版本配置工具后，才会跳过这层窗口；只重启 Fcitx5 不会改变该行为。
+
+支持满码唯一自动上屏、顶字、导入五笔词库和自制双拼 / 形码方案。切换方案会取消未上屏编码；Linux 尚不支持字根图与辅码。详见 [五笔与混输](../input/wubi.md)。旧安装若缺少五笔方案，需重新运行更新后的安装脚本补齐资源。
 
 ## 更新与卸载
 

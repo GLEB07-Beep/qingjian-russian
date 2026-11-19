@@ -248,6 +248,8 @@ impl Engine {
                 self.follow_nine_key_deletion(&before);
             }
             self.drop_pin_separator();
+            // 组句里删了字母：这段拼音被编辑过，整段合成词到此为止（issue #1024）
+            self.chain.note_edit();
         }
         removed
     }
@@ -267,9 +269,19 @@ impl Engine {
         self.traditional.forget();
     }
 
+    /// 这段拼音有没有在组句里被改过（退格删字母、删音节、删到光标后）。
+    /// 测试与诊断用；`finish_buffer` 按它决定整段还合不合成。
+    pub fn chain_edited(&self) -> bool {
+        self.chain.edited()
+    }
+
     pub fn delete_forward(&mut self) -> bool {
         self.note_edit();
-        self.composition.delete_forward()
+        let removed = self.composition.delete_forward();
+        if removed {
+            self.chain.note_edit();
+        }
+        removed
     }
 
     /// 删掉光标前的一个音节（壳里 ⌥⌫）：全拼按最优切分的最后一个音节连同它后面的 `'`，切不动的尾巴整个删；
@@ -282,7 +294,11 @@ impl Engine {
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
         let len = unit_len_before(before, self.shuangpin.is_some(), plain);
-        self.composition.delete_before_cursor(len)
+        let removed = self.composition.delete_before_cursor(len);
+        if removed {
+            self.chain.note_edit();
+        }
+        removed
     }
 
     /// 光标向左跳过一个音节，遇 `'` 连它一起跳过。光标在开头时返回 `false`。
@@ -336,16 +352,29 @@ impl Engine {
                 .is_expression(self.composition.text(), self.zhuyin)
     }
 
-    /// 表达式模式下这个字符进算式（数字与运算符），壳据此决定交给 [`Self::push`] 还是当选词键。
-    /// `vuuid`、`vts` 不是算式：数字留给选词。
-    pub fn expression_input(&self, c: char) -> bool {
-        self.expression_mode()
-            && shortcut::is_expression_char(c)
-            && !shortcut::is_generated_keyword(
-                &self.composition.text()[self.modes().expression.len_utf8()..],
-            )
+    /// `vbit:` 这类子模式只在全拼下认。
+    ///
+    /// 双拼的 `;` 是 ing 键、注音里字母是另一个键位、形码里字母都是字根 —— 那些方案把带
+    /// 冒号的串当子模式解析，会把正常输入吃掉。
+    pub(in crate::engine) fn expression_sub_modes(&self) -> bool {
+        self.shuangpin.is_none() && !self.zhuyin && self.code.is_none()
     }
-
+    /// 表达式模式下这个字符进算式（数字与运算符），壳据此决定交给 [`Self::push`] 还是当选词键。
+    /// `vuuid`、`vts` 不是算式：数字留给选词；但分号要收，`vts;2026-11-05` 得能接着敲参数。
+    pub fn expression_input(&self, c: char) -> bool {
+        if !self.expression_mode() {
+            return false;
+        }
+        // 子模式（`vbit:`、`vts;`）的按键规则全在 `shortcut::modes` 里统一登记，
+        // 这里只问「这个名字收不收这个键」：`None` 表示不是子模式，往下走算式判断。
+        if self.expression_sub_modes() {
+            let body = &self.composition.text()[self.modes().expression.len_utf8()..];
+            if let Some(accepts) = crate::shortcut::modes::accepts_key(body, c) {
+                return accepts;
+            }
+        }
+        shortcut::is_expression_char(c)
+    }
     /// 英文直输段：缓冲区里有拼音以外的字符（`no-way`），整段原样上屏、不解析拼音。
     /// 表达式模式与问字模式优先于它。
     pub fn raw_mode(&self) -> bool {
